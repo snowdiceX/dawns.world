@@ -6,42 +6,54 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"sync/atomic"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
 )
 
 const (
-	VERSION    = "Version"
-	CREATETIME = "Createtime"
+	version    = "Version"    // VERSION key of chaincode versio
+	createtime = "Createtime" // CREATETIME key of init time of chaincode
+	wallet     = "Wallet"     // WALLET key prefix of wallet address
+	sequence   = "Sequence"   // SEQUENCE key prefix of transaction sequence
+
+	// ChaincodeVersion current version of chaincode
+	ChaincodeVersion string = "0.0.1"
 )
 
 // WalletChaincode is wallet Chaincode implementation
 type WalletChaincode struct {
-	Version    string
 	Createtime string
+	Sequence   uint64
 }
 
 // Init ...
 func (w *WalletChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	fmt.Println("WalletChaincode Init...")
-	args := stub.GetStringArgs()
+	// args := stub.GetStringArgs()
 
 	var err error
 
 	// Initialize the chaincode
-	fmt.Printf("init: ", args...)
+	// fmt.Println("init: ", args...)
+	// var sequence int64
 
 	// Write the state to the ledger
-	err = stub.PutState(VERSION, []byte(w.Version))
+	err = stub.PutState(version, []byte(ChaincodeVersion))
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 
-	err = stub.PutState(CREATETIME, []byte(w.Createtime))
+	err = stub.PutState(createtime, []byte(w.Createtime))
 	if err != nil {
 		return shim.Error(err.Error())
 	}
+
+	// err = stub.PutState(SEQUENCE, []byte(strconv.FormatInt(sequence, 10)))
+	// if err != nil {
+	// 	return shim.Error(err.Error())
+	// }
 
 	if transientMap, err := stub.GetTransient(); err == nil {
 		if transientData, ok := transientMap["result"]; ok {
@@ -59,15 +71,18 @@ func (w *WalletChaincode) Query(stub shim.ChaincodeStubInterface) pb.Response {
 }
 
 // Invoke ...
-// Transaction makes payment of X units from A to B
 func (w *WalletChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	fmt.Println("WalletChaincode Invoke...")
-	args := stub.GetStringArgs()
-	if len(args) == 0 {
-		return shim.Error("Function not provided")
-	}
+	// args := stub.GetStringArgs()
+	//
+	// if len(args) == 0 {
+	// 	return shim.Error("Function not provided")
+	// }
+	//
+	// function := args[0]
+	// args = args[1:]
 
-	function := args[0]
+	function, args := stub.GetFunctionAndParameters()
 
 	if function == "create" {
 		// create a wallet
@@ -79,181 +94,119 @@ func (w *WalletChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return w.query(stub, args)
 	}
 
-	if function == "move" {
-		eventID := "testEvent"
-		if len(args) >= 5 {
-			eventID = args[4]
-		}
-		if err := stub.SetEvent(eventID, []byte("Test Payload")); err != nil {
-			return shim.Error("Unable to set CC event: testEvent. Aborting transaction ...")
-		}
-		return w.move(stub, args)
-	}
-
-	if function == "put" {
-		return w.put(stub, args[1:])
-	}
-
-	if function == "get" {
-		return w.get(stub, args[1:])
+	if function == "queryTransactionBySequence" {
+		// queries a transaction by sequence
+		return w.queryTransactionBySequence(stub, args)
 	}
 
 	return shim.Error(fmt.Sprintf("Unknown function call: %s", function))
 }
 
 /**
- * wallet address: [network]+[address]+[token name]
- */
+* args:
+      0 network
+      1 token name
+      2 address
+      3 height
+      4 tx id
+      5 token amount
+* account key: Wallet_[address]
+* wallet key: [network]+[token name]+[address]
+*/
 func (w *WalletChaincode) create(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	if len(args) < 5 {
+	if len(args) < 6 {
 		return shim.Error("Incorrect number of arguments. Expecting at least 2")
 	}
-	fmt.Sprintf()
-}
+	address := args[2]
+	accountKey := buildAccountKey(address)
+	if err := stub.PutState(accountKey, []byte(address)); err != nil {
+		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", accountKey, err))
+	}
+	fmt.Println("create an account: ", accountKey)
 
-func (w *WalletChaincode) move(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	// must be an invoke
-	var A, B string    // Entities
-	var Aval, Bval int // Asset holdings
-	var X int          // Transaction value
-	var err error
-	if len(args) < 4 {
-		return shim.Error("Incorrect number of arguments. Expecting 4, function followed by 2 names and 1 value")
+	walletKey := buildWalletKey(args[0], args[1], address)
+	if err := stub.PutState(walletKey, []byte(args[5])); err != nil {
+		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", walletKey, err))
+	}
+	fmt.Println("create a wallet: ", walletKey)
+
+	// seqBytes, err := stub.GetState(SEQUENCE)
+	// if err != nil {
+	// 	return shim.Error("Failed to get state")
+	// }
+	// if seqBytes == nil {
+	// 	return shim.Error("Entity not found")
+	// }
+	// seq, _ := strconv.ParseInt(string(seqBytes), 10, 64)
+	seq := atomic.AddUint64(&w.Sequence, 1)
+	sequenceKey := buildSequenceKey(seq)
+	jsonTx := "{\"sequence\":\"" + strconv.FormatUint(seq, 10) + "\",\"txid\":\"" + string(stub.GetTxID()) + "\"}"
+	if err := stub.PutState(sequenceKey, []byte(jsonTx)); err != nil {
+		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", walletKey, err))
 	}
 
-	A = args[1]
-	B = args[2]
-
-	// Get the state from the ledger
-	// TODO: will be nice to have a GetAllState call to ledger
-	Avalbytes, err := stub.GetState(A)
-	if err != nil {
-		return shim.Error("Failed to get state")
-	}
-	if Avalbytes == nil {
-		return shim.Error("Entity not found")
-	}
-	Aval, _ = strconv.Atoi(string(Avalbytes))
-
-	Bvalbytes, err := stub.GetState(B)
-	if err != nil {
-		return shim.Error("Failed to get state")
-	}
-	if Bvalbytes == nil {
-		return shim.Error("Entity not found")
-	}
-	Bval, _ = strconv.Atoi(string(Bvalbytes))
-
-	// Perform the execution
-	X, err = strconv.Atoi(args[3])
-	if err != nil {
-		return shim.Error("Invalid transaction amount, expecting a integer value")
-	}
-	Aval = Aval - X
-	Bval = Bval + X
-	fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
-
-	// Write the state back to the ledger
-	err = stub.PutState(A, []byte(strconv.Itoa(Aval)))
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-
-	err = stub.PutState(B, []byte(strconv.Itoa(Bval)))
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-
-	if transientMap, err := stub.GetTransient(); err == nil {
-		if transientData, ok := transientMap["result"]; ok {
-			fmt.Printf("Transient data in 'move' : %s\n", transientData)
-			return shim.Success(transientData)
-		}
-	}
-	return shim.Success(nil)
-}
-
-// Deletes an entity from state
-func (w *WalletChaincode) delete(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting 1")
-	}
-
-	A := args[1]
-
-	// Delete the key from the state in ledger
-	err := stub.DelState(A)
-	if err != nil {
-		return shim.Error("Failed to delete state")
-	}
-
-	return shim.Success(nil)
+	fmt.Println("create success: ", stub.GetTxID())
+	return shim.Success([]byte(fmt.Sprintf("{\"wallet\":\"%s\", \"txid\":\"%s\"}", walletKey, stub.GetTxID())))
 }
 
 // Query callback representing the query of a chaincode
 func (w *WalletChaincode) query(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	var A string // Entities
-	var err error
-
-	if len(args) != 2 {
+	if len(args) != 3 {
 		return shim.Error(fmt.Sprintf("Incorrect number of arguments: %v", args))
 	}
-
-	A = args[1]
+	walletKey := buildWalletKey(args[0], args[1], args[2])
 
 	// Get the state from the ledger
-	Avalbytes, err := stub.GetState(A)
+	walletBytes, err := stub.GetState(walletKey)
 	if err != nil {
-		jsonResp := "{\"Error\":\"Failed to get state for " + A + "\"}"
+		jsonResp := "{\"Error\":\"Failed to get state for " + walletKey + "\"}"
 		return shim.Error(jsonResp)
 	}
 
-	if Avalbytes == nil {
-		jsonResp := "{\"Error\":\"Nil amount for " + A + "\"}"
+	if walletBytes == nil {
+		jsonResp := "{\"Error\":\"Nil amount for " + walletKey + "\"}"
 		return shim.Error(jsonResp)
 	}
 
-	jsonResp := "{\"Name\":\"" + A + "\",\"Amount\":\"" + string(Avalbytes) + "\"}"
+	jsonResp := "{\"wallet\":\"" + walletKey + "\",\"amount\":\"" + string(walletBytes) + "\"}"
 	fmt.Printf("Query Response:%s\n", jsonResp)
-	return shim.Success(Avalbytes)
+	return shim.Success([]byte(jsonResp))
 }
 
-func (w *WalletChaincode) put(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	if len(args) != 2 {
-		return shim.Error("Invalid args. Expecting key and value")
+// queryTransactionBySequence queries a transaction by sequence
+func (w *WalletChaincode) queryTransactionBySequence(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	if len(args) != 3 {
+		return shim.Error(fmt.Sprintf("incorrect number of arguments: %v", args))
 	}
+	seq, _ := strconv.ParseUint(args[0], 10, 64)
+	sequenceKey := buildSequenceKey(seq)
 
-	key := args[0]
-	value := args[1]
-
-	existingValue, err := stub.GetState(key)
+	// Get the state from the ledger
+	txBytes, err := stub.GetState(sequenceKey)
 	if err != nil {
-		return shim.Error(fmt.Sprintf("Error getting data for key [%s]: %s", key, err))
-	}
-	if existingValue != nil {
-		value = string(existingValue) + "-" + value
+		jsonResp := "{\"Error\":\"failed to get state for " + sequenceKey + "\"}"
+		return shim.Error(jsonResp)
 	}
 
-	if err := stub.PutState(key, []byte(value)); err != nil {
-		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", key, err))
+	if txBytes == nil {
+		jsonResp := "{\"Error\":\"nil amount for " + sequenceKey + "\"}"
+		return shim.Error(jsonResp)
 	}
 
-	return shim.Success([]byte(value))
+	fmt.Printf("query Tx by sequence response:%s\n", string(txBytes))
+	return shim.Success(txBytes)
 }
 
-func (w *WalletChaincode) get(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	if len(args) != 1 {
-		return shim.Error("Invalid args. Expecting key")
-	}
+func buildAccountKey(address string) string {
+	return fmt.Sprintf("%s-%s", wallet, address)
+}
 
-	key := args[0]
+func buildWalletKey(network, token, address string) string {
+	return fmt.Sprintf("%s-%s-%s", network, token, address)
+}
 
-	value, err := stub.GetState(key)
-	if err != nil {
-		return shim.Error(fmt.Sprintf("Error getting data for key [%s]: %s", key, err))
-	}
-
-	return shim.Success([]byte(value))
+func buildSequenceKey(seq uint64) string {
+	return fmt.Sprintf("%s-%d", sequence, seq)
 }
 
 func main() {
@@ -262,3 +215,4 @@ func main() {
 		fmt.Printf("Error starting WalletChaincode: %s", err)
 	}
 }
+
