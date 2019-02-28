@@ -1,0 +1,30 @@
+package ${package_name}.gen.service.impl;
+
+import ${package_name}.common.annotation.BaseService;
+import ${package_name}.common.base.BaseServiceImpl;
+import ${package_name}.gen.dao.mapper.${model}Mapper;
+import ${package_name}.gen.dao.model.${model};
+import ${package_name}.gen.dao.model.${model}Example;
+import ${package_name}.gen.service.${model}Service;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+* ${model}Service实现
+* Auto generate on ${ctime}.
+*/
+@Service
+@Transactional
+@BaseService
+@Slf4j
+public class ${model}ServiceImpl extends BaseServiceImpl<${model}Mapper, ${model}, ${model}Example> implements ${model}Service {
+    @Autowired
+    ${model}Mapper ${model_first_low}Mapper;
+
+    @Override
+    protected ${model}Mapper getMapper(){
+        return ${model_first_low}Mapper;
+    }
+}

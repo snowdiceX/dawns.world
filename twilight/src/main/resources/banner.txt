@@ -1,0 +1,10 @@
+${AnsiColor.BRIGHT_BLUE}
+
+TWILIGHT
+
+the RESTful api service
+
+https://dawns.world
+
+${AnsiColor.BRIGHT_BLACK}
+::: Project (${spring.application.name}) ::: Spring-Boot ${spring-boot.version}
