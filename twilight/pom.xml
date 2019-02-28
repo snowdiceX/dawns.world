@@ -156,11 +156,12 @@
         
         <!-- https://mvnrepository.com/artifact/com.aliyun.oss/aliyun-sdk-oss -->
 		<!-- https://mvnrepository.com/artifact/cn.javaer.aliyun/aliyun-spring-boot-starter-oss -->
-		<dependency>
+		<!--  dependency>
 		    <groupId>cn.javaer.aliyun</groupId>
 		    <artifactId>aliyun-spring-boot-starter-oss</artifactId>
 		    <version>1.1.0</version>
 		</dependency>
+		-->
 
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
@@ -208,4 +209,34 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+    
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <descriptors>
+                        <descriptor>src/main/assembly/assembly.xml</descriptor>
+                    </descriptors>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- https://stackoverflow.com/questions/23260057/the-forked-vm-terminated-without-saying-properly-goodbye-vm-crash-or-system-exi -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <useSystemClassLoader>false</useSystemClassLoader>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
