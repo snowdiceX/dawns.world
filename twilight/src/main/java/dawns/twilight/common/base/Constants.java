@@ -4,11 +4,7 @@ public class Constants {
 	
 	public static final String CURRENT_USER_ID = "currentUserId";
 	
-	public static final String TOKEN = "aoeToken";
-	
-	public static final String TOKEN_AOE = "AOE";
-	public static final String TOKEN_QOS = "QOS";
-	public static final String TOKEN_ATOM = "ATOM";
+	public static final String LOGIN_TOKEN = "loginToken";
 	
 	public static final Integer ARTICLE_STATUS_DELETE = 0;
 	
