@@ -36,9 +36,17 @@
  * -- 功能：
  *     游戏规则相关api
  *
+ * 创建用户
+ * insert into mysql.user(Host, User, Password, ssl_cipher, x509_issuer, x509_subject) values("%", "twilight", password("twilight"), "", "", "");
+ *
+ * grant select,delete,update,create on *.* to twilight@"%" identified by "twilight";
+ * grant all privileges on twilight.* to twilight@localhost identified by 'twilight'
+ * flush privileges;
+ *
+ * 创建数据库
+ * create database twilight;
+ *
  */
-
-create database twilight;
 
 SET FOREIGN_KEY_CHECKS=0;
 
