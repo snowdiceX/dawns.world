@@ -31,13 +31,13 @@ import io.swagger.annotations.ApiOperation;
 
 @Controller
 @RequestMapping("")
-@Api(value = "Login api", tags = {"Login"})
+@Api(value = "Login api", tags = {"1. Login"})
 public class LoginUserRestController extends BaseRestController{
 	
     @Autowired
     private LoginUserService loginUserService;
 
-    @ApiOperation(value="登录", tags = {"Login"})
+    @ApiOperation(value="登录")
     @RequestMapping(value = "/signin", method = RequestMethod.POST)
     public JsonResult<LoginToken> signin(HttpServletRequest request, @RequestBody Signin signin) {
     	LoginUserExample example = new LoginUserExample();
@@ -55,7 +55,7 @@ public class LoginUserRestController extends BaseRestController{
         }
     }
     
-    @ApiOperation(value="注册", tags = {"Login"})
+    @ApiOperation(value="注册")
     @PostMapping(value = "/signup")
     public JsonResult<LoginUser> signup(HttpServletRequest request, @RequestBody LoginUser loginUser) {
     	if (loginUser!=null) {
@@ -70,13 +70,13 @@ public class LoginUserRestController extends BaseRestController{
         return new JsonResult<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
     
-    @ApiOperation(value="修改密码", tags = {"Login"})
+    @ApiOperation(value="修改密码")
     @PutMapping("/passwd/reset")
     public JsonResult<Boolean> update(HttpServletRequest request, @RequestBody NewPasswd passwd) {
         return new JsonResult<>(true);
     }
 
-    @ApiOperation(value="分页查询（后台）",tags = {"Login"})
+    @ApiOperation(value="分页查询（后台）")
     @GetMapping(value = "/user/list")
     @RequiresAuthentication
     public JsonResult<List<LoginUser>> page(HttpServletRequest request,
