@@ -17,7 +17,7 @@ public class CazimiService {
 
 		public void initJNI();
 		public String chaincodeInvoke(String chainID,
-				String chaincodeID, String function, String args);
+				String chaincodeID, String args);
 	}
 	
 	private static String libpath = System.getProperty("user.dir")
@@ -31,26 +31,25 @@ public class CazimiService {
 	}
 	
 	// 注册代理（托管）钱包地址
-	public String ChaincodeInvoke(String chainID,
-			String chaincodeID, String function, String args) {
-		log.info("ChaincodeInvoke: "+chainID+"; "+chaincodeID+"; "+function+"; "+args);
+	public String ChaincodeInvoke(String chainID, String chaincodeID, String args) {
+		log.info("ChaincodeInvoke: "+chainID+"; "+chaincodeID+"; "+args);
 		String ret = ERR_NULLJNA;
 		if (api != null) {
-			ret = api.chaincodeInvoke(chainID, chaincodeID, function, args);
+			ret = api.chaincodeInvoke(chainID, chaincodeID, args);
 		}
 		log.info(ret);
 		return 	ret;
 	}
 	
 	public String registerWallet(String userId, String token, String network){
-		return ChaincodeInvoke("dawns.world", "wallet", "register",
-				"{\"user\":\""+userId+"\", \"token\":\""+token+"\", \"network\":\""+network+"\"}");
+		return ChaincodeInvoke("dawns.world", "wallet",
+				"{\"Func\":\"register\", \"Args\":[\""+userId+"\", \""+token+"\", \""+network+"\"]}");
 	}
 	
 	public static void main(String[] args) {
 		String ret = null;
 		CazimiService cazimi = new CazimiService();
-		ret = cazimi.ChaincodeInvoke("dawns.world", "wallet", "register", "{}");
+		ret = cazimi.ChaincodeInvoke("dawns.world", "wallet", "{\"Func\":\"register\"}");
 		System.out.println("cazimi: "+ret);
 	}
 }

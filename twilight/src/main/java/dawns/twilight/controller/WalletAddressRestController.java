@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import com.alibaba.fastjson.JSONObject;
+
 import dawns.twilight.common.base.BaseRestController;
 import dawns.twilight.common.base.Constants;
 import dawns.twilight.common.cazimi.CazimiService;
@@ -37,14 +39,20 @@ public class WalletAddressRestController extends BaseRestController{
     @Autowired
     private CazimiService cazimi;
     
-    @ApiOperation(value="请求创建钱包地址")
+    @ApiOperation(value="请求创建托管钱包地址")
     @RequestMapping(value = "", method = RequestMethod.POST)
     @RequiresAuthentication
     public JsonResult<String> register(HttpServletRequest request, @RequestBody RequestWallet req) {
     	Integer userId = (Integer) request.getAttribute(Constants.CURRENT_USER_ID);
     	log.debug("call register...");
+    	JsonResult<String> result = new JsonResult<>(HttpStatus.OK);
+    	String txid = "txid";
     	String ret = cazimi.registerWallet(String.valueOf(userId), req.getToken(), req.getNetwork());
-        return new JsonResult<>(ret);
+    	JSONObject obj = JSONObject.parseObject(ret);
+    	result.setCode(obj.getInteger("code"));
+    	result.setMessage(obj.getString("message"));
+    	result.setData(txid);
+        return result;
     }
 
     @ApiOperation(value="根据id更新WalletAddress")

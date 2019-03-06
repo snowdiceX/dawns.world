@@ -67,7 +67,7 @@ extern "C" {
 
 extern void initJNI();
 
-extern char* chaincodeInvoke(char* p0, char* p1, char* p2, char* p3);
+extern char* chaincodeInvoke(char* p0, char* p1, char* p2);
 
 #ifdef __cplusplus
 }
