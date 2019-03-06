@@ -16,7 +16,8 @@ public class CazimiService {
 	public interface Cazimi extends Library {
 
 		public void initJNI();
-		public String registerWallet(String userId, String token, String network);
+		public String chaincodeInvoke(String chainID,
+				String chaincodeID, String function, String args);
 	}
 	
 	private static String libpath = System.getProperty("user.dir")
@@ -30,20 +31,26 @@ public class CazimiService {
 	}
 	
 	// 注册代理（托管）钱包地址
-	public String RegisterWallet(String userId, String token, String network) {
-		log.info("RegisterWallet: "+userId+"; "+token+"; "+network);
+	public String ChaincodeInvoke(String chainID,
+			String chaincodeID, String function, String args) {
+		log.info("ChaincodeInvoke: "+chainID+"; "+chaincodeID+"; "+function+"; "+args);
 		String ret = ERR_NULLJNA;
 		if (api != null) {
-			ret = api.registerWallet(userId, token, network);
+			ret = api.chaincodeInvoke(chainID, chaincodeID, function, args);
 		}
 		log.info(ret);
 		return 	ret;
 	}
 	
+	public String registerWallet(String userId, String token, String network){
+		return ChaincodeInvoke("dawns.world", "wallet", "register",
+				"{\"user\":\""+userId+"\", \"token\":\""+token+"\", \"network\":\""+network+"\"}");
+	}
+	
 	public static void main(String[] args) {
 		String ret = null;
 		CazimiService cazimi = new CazimiService();
-		ret = cazimi.RegisterWallet("XXXXXX", "ABC", "ethereum");
+		ret = cazimi.ChaincodeInvoke("dawns.world", "wallet", "register", "{}");
 		System.out.println("cazimi: "+ret);
 	}
 }

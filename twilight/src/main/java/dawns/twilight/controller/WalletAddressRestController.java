@@ -43,7 +43,7 @@ public class WalletAddressRestController extends BaseRestController{
     public JsonResult<String> register(HttpServletRequest request, @RequestBody RequestWallet req) {
     	Integer userId = (Integer) request.getAttribute(Constants.CURRENT_USER_ID);
     	log.debug("call register...");
-    	String ret = cazimi.RegisterWallet(String.valueOf(userId), req.getToken(), req.getNetwork());
+    	String ret = cazimi.registerWallet(String.valueOf(userId), req.getToken(), req.getNetwork());
         return new JsonResult<>(ret);
     }
 

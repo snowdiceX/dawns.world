@@ -16,10 +16,10 @@ func InitJNI() {
 	fmt.Println("init jni...")
 }
 
-// RegisterWallet call register chaincode of hyperledger fabric
-func RegisterWallet(account, token, network string) string {
-	fmt.Println("register wallet...")
-	return fmt.Sprintf("%s:%s", network, token)
+// ChaincodeInvoke call chaincode invoke of hyperledger fabric
+func ChaincodeInvoke(chainID, chaincodeID, function, args string) string {
+	fmt.Println("chaincode invoke...")
+	return fmt.Sprintf("%s:%s:%s", chainID, chaincodeID, function)
 }
 
 //export initJNI
@@ -27,9 +27,10 @@ func initJNI() {
 	InitJNI()
 }
 
-//export registerWallet
-func registerWallet(account, token, network *C.char) *C.char {
-	return C.CString(RegisterWallet(C.GoString(account), C.GoString(token), C.GoString(network)))
+//export chaincodeInvoke
+func chaincodeInvoke(chainID, chaincodeID, function, args *C.char) *C.char {
+	return C.CString(ChaincodeInvoke(C.GoString(chainID),
+		C.GoString(chaincodeID), C.GoString(function), C.GoString(args)))
 }
 
 func main() {
