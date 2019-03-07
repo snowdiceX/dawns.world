@@ -99,6 +99,11 @@ func (w *WalletChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return w.queryTransactionBySequence(stub, args)
 	}
 
+	if function == "register" {
+		// register a wallet
+		return w.register(stub, args)
+	}
+
 	return shim.Error(fmt.Sprintf("Unknown function call: %s", function))
 }
 
@@ -115,7 +120,7 @@ func (w *WalletChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 */
 func (w *WalletChaincode) create(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	if len(args) < 6 {
-		return shim.Error("Incorrect number of arguments. Expecting at least 2")
+		return shim.Error(fmt.Sprintf("expecting at least 6, %d", len(args)))
 	}
 	address := args[2]
 	accountKey := buildAccountKey(address)
@@ -197,6 +202,29 @@ func (w *WalletChaincode) queryTransactionBySequence(stub shim.ChaincodeStubInte
 	return shim.Success(txBytes)
 }
 
+/**
+* args:
+      0 userID
+      1 network
+      2 token name
+* register key: Register_[userID]_[network]_[token name]
+* wallet key: [network]-[token name]-[address]
+*/
+func (w *WalletChaincode) register(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	if len(args) < 3 {
+		return shim.Error(fmt.Sprintf("expecting at least 3 arguments, %d", len(args)))
+	}
+	seq := atomic.AddUint64(&w.Sequence, 1)
+	sequenceKey := buildSequenceKey(seq)
+	jsonTx := `{"sequence":"` + strconv.FormatUint(seq, 10) +
+		`","v":"1.0.0", "txid":"` + string(stub.GetTxID()) +
+		`", "args":["` + args[0] + `", "` + args[1] + `", "` + args[2] + `"}`
+	if err := stub.PutState(sequenceKey, []byte(jsonTx)); err != nil {
+		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", sequenceKey, err))
+	}
+	return shim.Success([]byte(jsonTx))
+}
+
 func buildAccountKey(address string) string {
 	return fmt.Sprintf("%s-%s", wallet, address)
 }
@@ -215,4 +243,3 @@ func main() {
 		fmt.Printf("Error starting WalletChaincode: %s", err)
 	}
 }
-

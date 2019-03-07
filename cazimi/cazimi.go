@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/securekey/fabric-examples/fabric-cli/cmd/fabric-cli/action"
+	"github.com/snowdiceX/dawns.world/cazimi/fabric"
 	"github.com/snowdiceX/dawns.world/cazimi/jni"
+	"github.com/snowdiceX/dawns.world/cazimi/log"
 )
 
 // ----------------------------------------------------------------------------
@@ -18,27 +19,36 @@ import (
 
 // InitJNI init jni
 func InitJNI() {
-	fmt.Println("init jni...")
+	log.Info("init jni...")
 }
 
 // ChaincodeInvoke call chaincode invoke of hyperledger fabric
 func ChaincodeInvoke(chainID, chaincodeID, argsStr string) string {
-	fmt.Println("chaincode invoke...")
+	log.Info("chaincode invoke...")
 	result := &jni.CallResult{
 		Code: http.StatusOK, Message: "OK"}
-	args := &action.ArgStruct{}
-	err := json.Unmarshal([]byte(argsStr), args)
+	argsArray, err := fabric.ArgsArray(argsStr)
 	if err == nil {
-
-		result.Message = fmt.Sprintf("OK; %s:%s:%s", chainID, chaincodeID, args.Func)
+		for _, args := range argsArray {
+			result.Message = fmt.Sprintf("OK; %s:%s:%s", chainID, chaincodeID, args.Func)
+		}
+		ret, err := fabric.ChaincodeInvoke(chainID, chaincodeID, argsArray)
+		if err != nil {
+			result.Code = http.StatusInternalServerError
+			result.Message = fmt.Sprintf("chaincode invoke error: %v", err)
+		} else {
+			log.Info("chaincode invoke result: ", ret)
+		}
 	} else {
 		result.Code = http.StatusInternalServerError
-		result.Message = fmt.Sprintf("chaincode invoke err: %v", err)
+		result.Message = fmt.Sprintf("args JSON parsing err: %v", err)
 	}
 	bytes, err := json.Marshal(result)
 	if err == nil {
+		log.Info(string(bytes))
 		return string(bytes)
 	}
+	log.Errorf("%s %v", jni.DefaultResultJSON, err)
 	return jni.DefaultResultJSON
 }
 

@@ -37,8 +37,8 @@ public class LoginUserRestController extends BaseRestController{
     @Autowired
     private LoginUserService loginUserService;
 
-    @ApiOperation(value="登录")
-    @RequestMapping(value = "/signin", method = RequestMethod.POST)
+    @ApiOperation(value="1. Login")
+    @RequestMapping(value = "/login", method = RequestMethod.POST)
     public JsonResult<LoginToken> signin(HttpServletRequest request, @RequestBody Signin signin) {
     	LoginUserExample example = new LoginUserExample();
         example.createCriteria().andEmailEqualTo(signin.getEmail());
@@ -55,7 +55,7 @@ public class LoginUserRestController extends BaseRestController{
         }
     }
     
-    @ApiOperation(value="注册")
+    @ApiOperation(value="2. Signup")
     @PostMapping(value = "/signup")
     public JsonResult<LoginUser> signup(HttpServletRequest request, @RequestBody LoginUser loginUser) {
     	if (loginUser!=null) {
@@ -70,16 +70,16 @@ public class LoginUserRestController extends BaseRestController{
         return new JsonResult<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
     
-    @ApiOperation(value="修改密码")
+    @ApiOperation(value="3. Password reset")
     @PutMapping("/passwd/reset")
     public JsonResult<Boolean> update(HttpServletRequest request, @RequestBody NewPasswd passwd) {
         return new JsonResult<>(true);
     }
 
-    @ApiOperation(value="分页查询（后台）")
+    @ApiOperation(value="4. Account list (admin)")
     @GetMapping(value = "/user/list")
     @RequiresAuthentication
-    public JsonResult<List<LoginUser>> page(HttpServletRequest request,
+    public JsonResult<List<LoginUser>> list(HttpServletRequest request,
                                             @RequestParam(value = "pageNum") Integer pageNum,
                                             @RequestParam(value = "pageSize") Integer pageSize) {
         LoginUserExample example = new LoginUserExample();
