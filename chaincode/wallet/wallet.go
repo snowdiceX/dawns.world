@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"sync/atomic"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -24,8 +25,9 @@ const (
 
 // WalletChaincode is wallet Chaincode implementation
 type WalletChaincode struct {
-	Createtime string
-	Sequence   uint64
+	Createtime  string
+	OutSequence uint64
+	InSequence  uint64
 }
 
 // Init ...
@@ -72,7 +74,6 @@ func (w *WalletChaincode) Query(stub shim.ChaincodeStubInterface) pb.Response {
 
 // Invoke ...
 func (w *WalletChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
-	fmt.Println("WalletChaincode Invoke...")
 	// args := stub.GetStringArgs()
 	//
 	// if len(args) == 0 {
@@ -83,7 +84,7 @@ func (w *WalletChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	// args = args[1:]
 
 	function, args := stub.GetFunctionAndParameters()
-
+	fmt.Println("WalletChaincode Invoke: ", function)
 	if function == "create" {
 		// create a wallet
 		return w.create(stub, args)
@@ -92,11 +93,6 @@ func (w *WalletChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	if function == "query" {
 		// queries an entity state
 		return w.query(stub, args)
-	}
-
-	if function == "queryTransactionBySequence" {
-		// queries a transaction by sequence
-		return w.queryTransactionBySequence(stub, args)
 	}
 
 	if function == "register" {
@@ -143,7 +139,7 @@ func (w *WalletChaincode) create(stub shim.ChaincodeStubInterface, args []string
 	// 	return shim.Error("Entity not found")
 	// }
 	// seq, _ := strconv.ParseInt(string(seqBytes), 10, 64)
-	seq := atomic.AddUint64(&w.Sequence, 1)
+	seq := atomic.AddUint64(&w.OutSequence, 1)
 	sequenceKey := buildSequenceKey(seq)
 	jsonTx := "{\"sequence\":\"" + strconv.FormatUint(seq, 10) + "\",\"txid\":\"" + string(stub.GetTxID()) + "\"}"
 	if err := stub.PutState(sequenceKey, []byte(jsonTx)); err != nil {
@@ -156,26 +152,44 @@ func (w *WalletChaincode) create(stub shim.ChaincodeStubInterface, args []string
 
 // Query callback representing the query of a chaincode
 func (w *WalletChaincode) query(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	if len(args) != 3 {
-		return shim.Error(fmt.Sprintf("Incorrect number of arguments: %v", args))
-	}
-	walletKey := buildWalletKey(args[0], args[1], args[2])
+	// if len(args) != 3 {
+	// 	return shim.Error(fmt.Sprintf("Incorrect number of arguments: %v", args))
+	// }
+	// walletKey := buildWalletKey(args[0], args[1], args[2])
 
-	// Get the state from the ledger
-	walletBytes, err := stub.GetState(walletKey)
-	if err != nil {
-		jsonResp := "{\"Error\":\"Failed to get state for " + walletKey + "\"}"
-		return shim.Error(jsonResp)
+	// // Get the state from the ledger
+	// walletBytes, err := stub.GetState(walletKey)
+	// if err != nil {
+	// 	jsonResp := "{\"Error\":\"Failed to get state for " + walletKey + "; " +
+	// 		strconv.FormatUint(w.Sequence, 10) + "\"}"
+	// 	return shim.Error(jsonResp)
+	// }
+
+	// if walletBytes == nil {
+	// 	jsonResp := "{\"Error\":\"Nil amount for " + walletKey + "; " +
+	// 		strconv.FormatUint(w.Sequence, 10) + "\"}"
+	// 	return shim.Error(jsonResp)
+	// }
+
+	// jsonResp := "{\"wallet\":\"" + walletKey + "; " +
+	// 	strconv.FormatUint(w.Sequence, 10) + "\",\"amount\":\"" + string(walletBytes) + "\"}"
+
+	var respJSON string
+	if len(args) == 0 || strings.EqualFold("sequence", args[0]) {
+		if len(args) >= 2 && strings.EqualFold("in", args[1]) {
+			respJSON = fmt.Sprintf(`{"chaincode": "wallet", "sequence": %d}`, w.InSequence)
+		} else {
+			respJSON = fmt.Sprintf(`{"chaincode": "wallet", "sequence": %d}`, w.OutSequence)
+		}
+		fmt.Printf("Query Response:%s\n", respJSON)
+		return shim.Success([]byte(respJSON))
+	}
+	if strings.EqualFold("transaction", args[0]) {
+		// queries a transaction by sequence
+		return w.queryTransactionBySequence(stub, args)
 	}
 
-	if walletBytes == nil {
-		jsonResp := "{\"Error\":\"Nil amount for " + walletKey + "\"}"
-		return shim.Error(jsonResp)
-	}
-
-	jsonResp := "{\"wallet\":\"" + walletKey + "\",\"amount\":\"" + string(walletBytes) + "\"}"
-	fmt.Printf("Query Response:%s\n", jsonResp)
-	return shim.Success([]byte(jsonResp))
+	return shim.Error(fmt.Sprintf("Unknown query function call: %s", args[0]))
 }
 
 // queryTransactionBySequence queries a transaction by sequence
@@ -214,7 +228,7 @@ func (w *WalletChaincode) register(stub shim.ChaincodeStubInterface, args []stri
 	if len(args) < 3 {
 		return shim.Error(fmt.Sprintf("expecting at least 3 arguments, %d", len(args)))
 	}
-	seq := atomic.AddUint64(&w.Sequence, 1)
+	seq := atomic.AddUint64(&w.OutSequence, 1)
 	sequenceKey := buildSequenceKey(seq)
 	jsonTx := `{"sequence":"` + strconv.FormatUint(seq, 10) +
 		`","v":"1.0.0", "txid":"` + string(stub.GetTxID()) +

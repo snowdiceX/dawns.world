@@ -30,7 +30,7 @@
             <outputDirectory>lib</outputDirectory>
             <fileMode>0644</fileMode>
             <includes>
-                <include>cazimi.so</include>
+                <include>fabric.so</include>
             </includes>
         </fileSet>
     </fileSets>
