@@ -16,7 +16,7 @@ import (
 const (
 	version    = "Version"    // VERSION key of chaincode versio
 	createtime = "Createtime" // CREATETIME key of init time of chaincode
-	wallet     = "Wallet"     // WALLET key prefix of wallet address
+	tagWallet  = "Wallet"     // WALLET key prefix of wallet address
 	sequence   = "Sequence"   // SEQUENCE key prefix of transaction sequence
 
 	// ChaincodeVersion current version of chaincode
@@ -119,7 +119,7 @@ func (w *WalletChaincode) create(stub shim.ChaincodeStubInterface, args []string
 		return shim.Error(fmt.Sprintf("expecting at least 6, %d", len(args)))
 	}
 	address := args[2]
-	accountKey := buildAccountKey(address)
+	accountKey := buildAccountKey("asd", address)
 	if err := stub.PutState(accountKey, []byte(address)); err != nil {
 		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", accountKey, err))
 	}
@@ -197,7 +197,7 @@ func (w *WalletChaincode) queryTransactionBySequence(stub shim.ChaincodeStubInte
 	if len(args) != 3 {
 		return shim.Error(fmt.Sprintf("incorrect number of arguments: %v", args))
 	}
-	seq, _ := strconv.ParseUint(args[0], 10, 64)
+	seq, _ := strconv.ParseUint(args[2], 10, 64)
 	sequenceKey := buildSequenceKey(seq)
 
 	// Get the state from the ledger
@@ -218,29 +218,53 @@ func (w *WalletChaincode) queryTransactionBySequence(stub shim.ChaincodeStubInte
 
 /**
 * args:
-      0 userID
-      1 network
-      2 token name
+      0 accountID
+      1 key
+      2 network
+      3 token name
 * register key: Register_[userID]_[network]_[token name]
 * wallet key: [network]-[token name]-[address]
 */
 func (w *WalletChaincode) register(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	if len(args) < 3 {
-		return shim.Error(fmt.Sprintf("expecting at least 3 arguments, %d", len(args)))
+	if len(args) < 6 {
+		return shim.Error(fmt.Sprintf("expecting at least 6 arguments, %d", len(args)))
 	}
+	accountID, address, key, chain, token, height :=
+		args[0], args[1], args[2], args[3], args[4], args[5]
+	fmt.Printf(`chaincode[wallet] register
+		account: %s,
+		address: %s,
+		key: %s,
+		chain: %s,
+		token: %s,
+		height: %s`+"\n",
+		accountID, address, key, chain, token, height)
 	seq := atomic.AddUint64(&w.OutSequence, 1)
 	sequenceKey := buildSequenceKey(seq)
-	jsonTx := `{"sequence":"` + strconv.FormatUint(seq, 10) +
-		`","v":"1.0.0", "txid":"` + string(stub.GetTxID()) +
-		`", "args":["` + args[0] + `", "` + args[1] + `", "` + args[2] + `"}`
+	jsonTx := `v1.0.0:{"sequence":"` + strconv.FormatUint(seq, 10) +
+		`", "txid":"` + string(stub.GetTxID()) +
+		`", "args":["newAccount", "` + address + `", "` + chain + `", "` + token + `"]}`
 	if err := stub.PutState(sequenceKey, []byte(jsonTx)); err != nil {
+		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", sequenceKey, err))
+	}
+	jsonWallet := `v1.0.0:{"chain":"` + chain +
+		`", "token":"` + token +
+		`", "height":"` + height +
+		`", "accountID":"` + accountID +
+		`", "address":"` + address +
+		`", "key":"` + key +
+		`", "txid":"` + string(stub.GetTxID()) +
+		`", "agent":"node?ip:port?agentPubKey?"}`
+	accountKey := buildAccountKey(args[0], args[1])
+	fmt.Printf(`chaincode[wallet] register: %s, data: %s`+"\n", accountKey, jsonWallet)
+	if err := stub.PutState(accountKey, []byte(jsonWallet)); err != nil {
 		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", sequenceKey, err))
 	}
 	return shim.Success([]byte(jsonTx))
 }
 
-func buildAccountKey(address string) string {
-	return fmt.Sprintf("%s-%s", wallet, address)
+func buildAccountKey(accountID, address string) string {
+	return fmt.Sprintf("%s-%s-%s", tagWallet, accountID, address)
 }
 
 func buildWalletKey(network, token, address string) string {

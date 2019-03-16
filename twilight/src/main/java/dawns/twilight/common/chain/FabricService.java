@@ -15,10 +15,9 @@ public class FabricService {
 	// hyperledger fabric api
 	public interface FabrciApi extends Library {
 
-		public String chaincodeInvoke(String channelID,
-				String chaincodeID, String args);
-		public String chaincodeQuery(String channelID,
-				String chaincodeID, String args);
+		public String chaincodeInvoke(String channelID, String chaincodeID, String args);
+		public String chaincodeQuery(String channelID, String chaincodeID, String args);
+		public String newAccount(String accountId, String key, String chain, String token);
 	}
 	
 	private static String libpath = System.getProperty("user.dir")
@@ -51,9 +50,8 @@ public class FabricService {
 	}
 	
 	// 注册代理（托管）钱包地址
-	public String registerWallet(String userId, String token, String network){
-		return ChaincodeInvoke("orgchannel", "wallet",
-				"{\"Func\":\"register\", \"Args\":[\""+userId+"\", \""+token+"\", \""+network+"\"]}");
+	public String NewAccount(String accountId, String key, String network, String token){
+		return api.newAccount(accountId, key, network, token);
 	}
 	
 	public static void main(String[] args) {

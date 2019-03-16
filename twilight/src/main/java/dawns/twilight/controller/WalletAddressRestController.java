@@ -47,7 +47,8 @@ public class WalletAddressRestController extends BaseRestController{
     	log.debug("call register...");
     	JsonResult<String> result = new JsonResult<>(HttpStatus.OK);
     	String txid = "txid";
-    	String ret = fabric.registerWallet(String.valueOf(userId), req.getToken(), req.getNetwork());
+    	String ret = fabric.NewAccount(String.valueOf(userId), req.getKey(),
+    			req.getNetwork(), req.getToken());
     	JSONObject obj = JSONObject.parseObject(ret);
     	result.setCode(obj.getInteger("code"));
     	result.setMessage(obj.getString("message"));
@@ -76,7 +77,7 @@ public class WalletAddressRestController extends BaseRestController{
     	return ret;
     }
 
-    @ApiOperation(value="分页查询WalletAddress")
+    @ApiOperation(value="4. paging query")
     @RequestMapping(value = "", method = RequestMethod.GET)
     public JsonResult<List<WalletAddress>> page(HttpServletRequest request,
                                             @RequestParam(value = "pageNum") Integer pageNum,

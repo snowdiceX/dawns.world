@@ -69,6 +69,8 @@ extern char* chaincodeInvoke(char* p0, char* p1, char* p2);
 
 extern char* chaincodeQuery(char* p0, char* p1, char* p2);
 
+extern char* newAccount(char* p0, char* p1, char* p2, char* p3);
+
 #ifdef __cplusplus
 }
 #endif

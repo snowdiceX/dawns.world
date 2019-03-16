@@ -8,4 +8,8 @@ public class RequestWallet {
 	private String network;
 	
 	private String token;
+	
+	private String name;
+	
+	private String key;
 }
