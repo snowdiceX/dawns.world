@@ -231,6 +231,7 @@ func (w *WalletChaincode) register(stub shim.ChaincodeStubInterface, args []stri
 	}
 	accountID, address, key, chain, token, height :=
 		args[0], args[1], args[2], args[3], args[4], args[5]
+
 	fmt.Printf(`chaincode[wallet] register
 		account: %s,
 		address: %s,
@@ -241,10 +242,12 @@ func (w *WalletChaincode) register(stub shim.ChaincodeStubInterface, args []stri
 		accountID, address, key, chain, token, height)
 	seq := atomic.AddUint64(&w.OutSequence, 1)
 	sequenceKey := buildSequenceKey(seq)
-	jsonTx := `v1.0.0:{"sequence":"` + strconv.FormatUint(seq, 10) +
-		`", "txid":"` + string(stub.GetTxID()) +
-		`", "args":["newAccount", "` + address + `", "` + chain + `", "` + token + `"]}`
-	if err := stub.PutState(sequenceKey, []byte(jsonTx)); err != nil {
+	jsonTx := `{"code": 0, "message": "OK", "sequence": ` + strconv.FormatUint(seq, 10) +
+		`, "txid":"` + string(stub.GetTxID()) +
+		`", "func":"register", "address":"` + address +
+		`", "network":"` + chain +
+		`", "token":"` + token + `", "height": ` + height + `}`
+	if err := stub.PutState(sequenceKey, []byte("v1.0.0:"+jsonTx)); err != nil {
 		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", sequenceKey, err))
 	}
 	jsonWallet := `v1.0.0:{"chain":"` + chain +

@@ -3,11 +3,15 @@ package dawns.twilight.common.web;
 import lombok.Data;
 
 @Data
-public class RequestWallet {
+public class ResponseWallet {
 
 	private String network;
 	
 	private String token;
 	
-	private String pass;
+	private String address;
+	
+	private String txid;
+	
+	private int height;
 }

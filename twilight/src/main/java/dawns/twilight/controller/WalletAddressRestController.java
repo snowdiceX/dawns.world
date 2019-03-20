@@ -21,6 +21,7 @@ import dawns.twilight.common.base.Constants;
 import dawns.twilight.common.chain.FabricService;
 import dawns.twilight.common.web.JsonResult;
 import dawns.twilight.common.web.RequestWallet;
+import dawns.twilight.common.web.ResponseWallet;
 import dawns.twilight.dao.model.WalletAddress;
 import dawns.twilight.dao.model.WalletAddressExample;
 import dawns.twilight.service.WalletAddressService;
@@ -31,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 @Controller
 @Slf4j
 @RequestMapping("/wallet")
-@Api(value = "WalletAddress api", tags = {"2. Wallet"})
+@Api(value = "wallet api", tags = {"2. Wallet"})
 public class WalletAddressRestController extends BaseRestController{
     @Autowired
     private WalletAddressService walletAddressService;
@@ -39,24 +40,29 @@ public class WalletAddressRestController extends BaseRestController{
     @Autowired
     private FabricService fabric;
     
-    @ApiOperation(value="1. request register wallet")
+    @ApiOperation(value="register wallet")
     @RequestMapping(value = "", method = RequestMethod.POST)
     @RequiresAuthentication
-    public JsonResult<String> register(HttpServletRequest request, @RequestBody RequestWallet req) {
+    public JsonResult<ResponseWallet> register(HttpServletRequest request, @RequestBody RequestWallet req) {
     	Integer userId = (Integer) request.getAttribute(Constants.CURRENT_USER_ID);
     	log.debug("call register...");
-    	JsonResult<String> result = new JsonResult<>(HttpStatus.OK);
-    	String txid = "txid";
-    	String ret = fabric.NewAccount(String.valueOf(userId), req.getKey(),
+    	JsonResult<ResponseWallet> result = new JsonResult<>(HttpStatus.OK);
+    	String ret = fabric.NewAccount(String.valueOf(userId), req.getPass(),
     			req.getNetwork(), req.getToken());
     	JSONObject obj = JSONObject.parseObject(ret);
     	result.setCode(obj.getInteger("code"));
     	result.setMessage(obj.getString("message"));
-    	result.setData(txid);
+    	ResponseWallet wallet = new ResponseWallet();
+    	wallet.setNetwork(req.getNetwork());
+    	wallet.setToken(req.getToken());
+    	wallet.setHeight(obj.getInteger("height"));
+    	wallet.setTxid(obj.getString("txid"));
+    	wallet.setAddress(obj.getString("address"));
+    	result.setData(wallet);
         return result;
     }
     
-    @ApiOperation(value="2. query wallet")
+    @ApiOperation(value="query wallet")
     @RequestMapping(value = "/{id}", method = RequestMethod.GET)
     public JsonResult<WalletAddress> get(HttpServletRequest request, @PathVariable("id") Integer id) {
     	String chainRet = fabric.ChaincodeQuery("orgchannel", "wallet",
@@ -66,7 +72,7 @@ public class WalletAddressRestController extends BaseRestController{
     	return ret;
     }
 
-    @ApiOperation(value="3. query transaction")
+    @ApiOperation(value="query transaction")
     @RequestMapping(value = "/transaction/{sequence}", method = RequestMethod.GET)
     public JsonResult<WalletAddress> getTransaction(HttpServletRequest request,
     		@PathVariable("sequence") String sequence) {
@@ -77,7 +83,7 @@ public class WalletAddressRestController extends BaseRestController{
     	return ret;
     }
 
-    @ApiOperation(value="4. paging query")
+    @ApiOperation(value="paging query")
     @RequestMapping(value = "", method = RequestMethod.GET)
     public JsonResult<List<WalletAddress>> page(HttpServletRequest request,
                                             @RequestParam(value = "pageNum") Integer pageNum,

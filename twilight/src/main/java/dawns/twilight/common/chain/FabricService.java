@@ -17,7 +17,7 @@ public class FabricService {
 
 		public String chaincodeInvoke(String channelID, String chaincodeID, String args);
 		public String chaincodeQuery(String channelID, String chaincodeID, String args);
-		public String newAccount(String accountId, String key, String chain, String token);
+		public String newAccount(String accountID, String key, String chain, String token);
 	}
 	
 	private static String libpath = System.getProperty("user.dir")
@@ -50,14 +50,19 @@ public class FabricService {
 	}
 	
 	// 注册代理（托管）钱包地址
-	public String NewAccount(String accountId, String key, String network, String token){
-		return api.newAccount(accountId, key, network, token);
+	public String NewAccount(String accountId, String pass, String network, String token){
+		String ret = ERR_NULLJNA;
+		if (api != null) {
+			ret =  api.newAccount(accountId, pass, network, token);
+		}
+		log.info(ret);
+		return 	ret;
 	}
 	
 	public static void main(String[] args) {
 		String ret = null;
 		FabricService api = new FabricService();
-//		ret = api.ChaincodeInvoke("dawns.world", "wallet", "{\"Func\":\"register\"}");
+//		ret = api.ChaincodeInvoke("orgchannel", "wallet", "{\"Func\":\"register\"}");
 //		System.out.println("cazimi: "+ret);
 		ret = api.ChaincodeInvoke("orgchannel", "wallet", "{\"Func\":\"query\"}");
 		System.out.println("fabric: "+ret);
