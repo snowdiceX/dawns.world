@@ -64,6 +64,7 @@ public class WalletAddressRestController extends BaseRestController{
     
     @ApiOperation(value="query wallet")
     @RequestMapping(value = "/{id}", method = RequestMethod.GET)
+    @RequiresAuthentication
     public JsonResult<WalletAddress> get(HttpServletRequest request, @PathVariable("id") Integer id) {
     	String chainRet = fabric.ChaincodeQuery("orgchannel", "wallet",
 				"{\"Func\":\"query\", \"Args\":[\"sequence\"]}");

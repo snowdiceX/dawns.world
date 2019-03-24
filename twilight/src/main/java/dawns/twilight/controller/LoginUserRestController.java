@@ -50,9 +50,8 @@ public class LoginUserRestController extends BaseRestController{
         	token.setToken(t);
         	token.setUser(loginUser);
             return new JsonResult<>(token);
-        }else{
-            return new JsonResult<>(HttpStatus.NOT_FOUND);
         }
+        return new JsonResult<>(HttpStatus.NOT_FOUND);
     }
     
     @ApiOperation(value="2. Signup")
