@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -174,15 +175,8 @@ func (w *WalletChaincode) query(stub shim.ChaincodeStubInterface, args []string)
 	// jsonResp := "{\"wallet\":\"" + walletKey + "; " +
 	// 	strconv.FormatUint(w.Sequence, 10) + "\",\"amount\":\"" + string(walletBytes) + "\"}"
 
-	var respJSON string
 	if len(args) == 0 || strings.EqualFold("sequence", args[0]) {
-		if len(args) >= 2 && strings.EqualFold("in", args[1]) {
-			respJSON = fmt.Sprintf(`{"chaincode": "wallet", "sequence": %d}`, w.InSequence)
-		} else {
-			respJSON = fmt.Sprintf(`{"chaincode": "wallet", "sequence": %d}`, w.OutSequence)
-		}
-		fmt.Printf("Query Response:%s\n", respJSON)
-		return shim.Success([]byte(respJSON))
+		return w.querySequence(stub, args)
 	}
 	if strings.EqualFold("transaction", args[0]) {
 		// queries a transaction by sequence
@@ -192,10 +186,23 @@ func (w *WalletChaincode) query(stub shim.ChaincodeStubInterface, args []string)
 	return shim.Error(fmt.Sprintf("Unknown query function call: %s", args[0]))
 }
 
+func (w *WalletChaincode) querySequence(
+	stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	in := atomic.LoadUint64(&w.InSequence)
+	out := atomic.LoadUint64(&w.OutSequence)
+	respJSON := fmt.Sprintf(
+		`{"chaincode": "wallet", "InSequence": %d, "OutSequence": %d}`,
+		in, out)
+	fmt.Printf("Query Response:%s\n", respJSON)
+	return shim.Success([]byte(respJSON))
+}
+
 // queryTransactionBySequence queries a transaction by sequence
-func (w *WalletChaincode) queryTransactionBySequence(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (w *WalletChaincode) queryTransactionBySequence(
+	stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	if len(args) != 3 {
-		return shim.Error(fmt.Sprintf("incorrect number of arguments: %v", args))
+		return shim.Error(fmt.Sprintf(
+			"incorrect number of arguments: %v", args))
 	}
 	seq, _ := strconv.ParseUint(args[2], 10, 64)
 	sequenceKey := buildSequenceKey(seq)
@@ -225,11 +232,12 @@ func (w *WalletChaincode) queryTransactionBySequence(stub shim.ChaincodeStubInte
 * register key: Register_[userID]_[network]_[token name]
 * wallet key: [network]-[token name]-[address]
 */
-func (w *WalletChaincode) register(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (w *WalletChaincode) register(
+	stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	if len(args) < 6 {
 		return shim.Error(fmt.Sprintf("expecting at least 6 arguments, %d", len(args)))
 	}
-	accountID, address, key, chain, token, height :=
+	accountID, address, key, chain, token, heightHex :=
 		args[0], args[1], args[2], args[3], args[4], args[5]
 
 	fmt.Printf(`chaincode[wallet] register
@@ -239,20 +247,27 @@ func (w *WalletChaincode) register(stub shim.ChaincodeStubInterface, args []stri
 		chain: %s,
 		token: %s,
 		height: %s`+"\n",
-		accountID, address, key, chain, token, height)
+		accountID, address, key, chain, token, heightHex)
+	var height uint64
+	var err error
+	if height, err = w.checkInSequence(stub, heightHex); err != nil {
+		fmt.Println("in sequence check error: ", err.Error())
+		return shim.Error(err.Error())
+	}
 	seq := atomic.AddUint64(&w.OutSequence, 1)
 	sequenceKey := buildSequenceKey(seq)
-	jsonTx := `{"code": 0, "message": "OK", "sequence": ` + strconv.FormatUint(seq, 10) +
-		`, "txid":"` + string(stub.GetTxID()) +
-		`", "func":"register", "address":"` + address +
-		`", "network":"` + chain +
-		`", "token":"` + token + `", "height": ` + height + `}`
+	jsonTx := fmt.Sprintf(`{"code": 0, "message": "OK", "sequence": %s`+
+		`, "txid":"%s", "func":"register", "address":"%s"`+
+		`, "network":"%s", "token":"%s", "height": %d}`,
+		strconv.FormatUint(seq, 10),
+		string(stub.GetTxID()), address,
+		chain, token, height)
 	if err := stub.PutState(sequenceKey, []byte("v1.0.0:"+jsonTx)); err != nil {
 		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", sequenceKey, err))
 	}
 	jsonWallet := `v1.0.0:{"chain":"` + chain +
 		`", "token":"` + token +
-		`", "height":"` + height +
+		`", "height":"` + heightHex +
 		`", "accountID":"` + accountID +
 		`", "address":"` + address +
 		`", "key":"` + key +
@@ -264,6 +279,35 @@ func (w *WalletChaincode) register(stub shim.ChaincodeStubInterface, args []stri
 		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", sequenceKey, err))
 	}
 	return shim.Success([]byte(jsonTx))
+}
+
+func (w *WalletChaincode) checkInSequence(
+	stub shim.ChaincodeStubInterface, height string) (h uint64, err error) {
+	if strings.HasPrefix(height, "0x") {
+		height = height[2:]
+	}
+	h, err = strconv.ParseUint(height, 16, 64)
+	if err != nil {
+		msg := fmt.Sprintf("parse height 0x%s error: %v",
+			height, err)
+		err = errors.New(msg)
+		return
+	}
+	if w.InSequence <= 0 {
+		inSeq := atomic.LoadUint64(&w.InSequence)
+		if inSeq > 0 {
+			return
+		}
+		if atomic.CompareAndSwapUint64(&w.InSequence, 0, h) {
+			if err = stub.PutState("Wallet-InSequence",
+				[]byte(height)); err != nil {
+				atomic.StoreUint64(&w.InSequence, 0)
+				err = errors.New("update in sequence error")
+				return
+			}
+		}
+	}
+	return
 }
 
 func buildAccountKey(accountID, address string) string {
