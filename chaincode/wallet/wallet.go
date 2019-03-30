@@ -90,15 +90,17 @@ func (w *WalletChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		// create a wallet
 		return w.create(stub, args)
 	}
-
 	if function == "query" {
 		// queries an entity state
 		return w.query(stub, args)
 	}
-
 	if function == "register" {
 		// register a wallet
 		return w.register(stub, args)
+	}
+	if function == "registerBlock" {
+		// register chain's block
+		return w.registerBlock(stub, args)
 	}
 
 	return shim.Error(fmt.Sprintf("Unknown function call: %s", function))
@@ -226,9 +228,11 @@ func (w *WalletChaincode) queryTransactionBySequence(
 /**
 * args:
       0 accountID
-      1 key
-      2 network
-      3 token name
+      1 address
+      2 key
+      3 blockchain network
+      4 token name
+      5 blockchain height in hex
 * register key: Register_[userID]_[network]_[token name]
 * wallet key: [network]-[token name]-[address]
 */
@@ -279,6 +283,17 @@ func (w *WalletChaincode) register(
 		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", sequenceKey, err))
 	}
 	return shim.Success([]byte(jsonTx))
+}
+
+/**
+* args:
+      0 blockchain network
+      1 block data
+*/
+func (w *WalletChaincode) registerBlock(
+	stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	network, blockdata := args[0], args[1]
+	return registerChainBlock(network, blockdata)
 }
 
 func (w *WalletChaincode) checkInSequence(
