@@ -122,7 +122,7 @@ func (w *WalletChaincode) create(stub shim.ChaincodeStubInterface, args []string
 		return shim.Error(fmt.Sprintf("expecting at least 6, %d", len(args)))
 	}
 	address := args[2]
-	accountKey := buildAccountKey("asd", address)
+	accountKey := buildAccountKey("ethereum", "eth", "000", address)
 	if err := stub.PutState(accountKey, []byte(address)); err != nil {
 		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", accountKey, err))
 	}
@@ -277,7 +277,7 @@ func (w *WalletChaincode) register(
 		`", "key":"` + key +
 		`", "txid":"` + string(stub.GetTxID()) +
 		`", "agent":"node?ip:port?agentPubKey?"}`
-	accountKey := buildAccountKey(args[0], args[1])
+	accountKey := buildAccountKey(chain, token, accountID, address)
 	fmt.Printf(`chaincode[wallet] register: %s, data: %s`+"\n", accountKey, jsonWallet)
 	if err := stub.PutState(accountKey, []byte(jsonWallet)); err != nil {
 		return shim.Error(fmt.Sprintf("Error putting data for key [%s]: %s", sequenceKey, err))
@@ -325,8 +325,9 @@ func (w *WalletChaincode) checkInSequence(
 	return
 }
 
-func buildAccountKey(accountID, address string) string {
-	return fmt.Sprintf("%s-%s-%s", tagWallet, accountID, address)
+func buildAccountKey(chain, token, accountID, address string) string {
+	return fmt.Sprintf("%s-%s-%s-%s-%s",
+		tagWallet, chain, token, accountID, address)
 }
 
 func buildWalletKey(network, token, address string) string {
