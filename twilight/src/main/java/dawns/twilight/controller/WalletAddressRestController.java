@@ -40,7 +40,7 @@ public class WalletAddressRestController extends BaseRestController{
     @Autowired
     private FabricService fabric;
     
-    @ApiOperation(value="register wallet")
+    @ApiOperation(value="Register")
     @RequestMapping(value = "", method = RequestMethod.POST)
     @RequiresAuthentication
     public JsonResult<ResponseWallet> register(HttpServletRequest request, @RequestBody RequestWallet req) {
@@ -53,38 +53,53 @@ public class WalletAddressRestController extends BaseRestController{
     	result.setCode(obj.getInteger("code"));
     	result.setMessage(obj.getString("message"));
     	ResponseWallet wallet = new ResponseWallet();
+    	obj = obj.getJSONObject("result");
     	wallet.setNetwork(req.getNetwork());
     	wallet.setToken(req.getToken());
-    	wallet.setHeight(obj.getInteger("height"));
+    	wallet.setHeight(obj.getString("height"));
     	wallet.setTxid(obj.getString("txid"));
     	wallet.setAddress(obj.getString("address"));
     	result.setData(wallet);
         return result;
     }
     
-    @ApiOperation(value="query wallet")
-    @RequestMapping(value = "/{id}", method = RequestMethod.GET)
+    @ApiOperation(value="Query wallet")
+    @RequestMapping(value = "/{chain}/{token}/{address}", method = RequestMethod.GET)
     @RequiresAuthentication
-    public JsonResult<WalletAddress> get(HttpServletRequest request, @PathVariable("id") Integer id) {
+    public JsonResult<WalletAddress> getWallet(HttpServletRequest request,
+    		@PathVariable("chain") String chain,
+    		@PathVariable("token") String token,
+    		@PathVariable("address") String address) {
+    	String chainRet = fabric.ChaincodeQuery("orgchannel", "wallet",
+				"{\"Func\":\"query\", \"Args\":[\"wallet\", \""+chain+"\", \""+token+"\", \""+address+"\"]}");
+    	JsonResult<WalletAddress> ret = new JsonResult<>(HttpStatus.OK);
+    	ret.setMessage(chainRet);
+    	return ret;
+    }
+    
+    @ApiOperation(value="Query sequence")
+    @RequestMapping(value = "/sequence", method = RequestMethod.GET)
+    @RequiresAuthentication
+    public JsonResult<WalletAddress> getSequence(HttpServletRequest request) {
     	String chainRet = fabric.ChaincodeQuery("orgchannel", "wallet",
 				"{\"Func\":\"query\", \"Args\":[\"sequence\"]}");
-    	JsonResult<WalletAddress> ret = new JsonResult<>(HttpStatus.NOT_FOUND);
+    	JsonResult<WalletAddress> ret = new JsonResult<>(HttpStatus.OK);
     	ret.setMessage(chainRet);
     	return ret;
     }
 
-    @ApiOperation(value="query transaction")
+    @ApiOperation(value="Query transaction")
     @RequestMapping(value = "/transaction/{sequence}", method = RequestMethod.GET)
     public JsonResult<WalletAddress> getTransaction(HttpServletRequest request,
     		@PathVariable("sequence") String sequence) {
     	String chainRet = fabric.ChaincodeQuery("orgchannel", "wallet",
 				"{\"Func\":\"query\", \"Args\":[\"transaction\", \"sequence\", \"+sequence+\"]}");
-    	JsonResult<WalletAddress> ret = new JsonResult<>(HttpStatus.NOT_FOUND);
+    	JsonResult<WalletAddress> ret = new JsonResult<>(HttpStatus.OK);
     	ret.setMessage(chainRet);
     	return ret;
     }
 
-    @ApiOperation(value="paging query")
+    @ApiOperation(value="Paging")
     @RequestMapping(value = "", method = RequestMethod.GET)
     public JsonResult<List<WalletAddress>> page(HttpServletRequest request,
                                             @RequestParam(value = "pageNum") Integer pageNum,

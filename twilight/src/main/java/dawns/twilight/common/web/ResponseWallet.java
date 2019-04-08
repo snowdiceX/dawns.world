@@ -13,5 +13,5 @@ public class ResponseWallet {
 	
 	private String txid;
 	
-	private int height;
+	private String height;
 }

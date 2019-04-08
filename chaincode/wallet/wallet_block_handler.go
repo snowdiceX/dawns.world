@@ -8,7 +8,7 @@ import (
 )
 
 func registerChainBlock(network, blockdata string) pb.Response {
-	log.Debug("register chain block: ", network, blockdata)
+	log.Info("register chain block: ", network, "; ", blockdata)
 	ret := &util.ChainResult{Code: 200, Message: "OK"}
 	return util.Success(ret)
 }
