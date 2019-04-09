@@ -40,15 +40,40 @@ public class WalletAddressRestController extends BaseRestController{
     @Autowired
     private FabricService fabric;
     
-    @ApiOperation(value="Register")
+    @ApiOperation(value="Register wallet")
     @RequestMapping(value = "", method = RequestMethod.POST)
     @RequiresAuthentication
     public JsonResult<ResponseWallet> register(HttpServletRequest request, @RequestBody RequestWallet req) {
     	Integer userId = (Integer) request.getAttribute(Constants.CURRENT_USER_ID);
     	log.debug("call register...");
     	JsonResult<ResponseWallet> result = new JsonResult<>(HttpStatus.OK);
-    	String ret = fabric.NewAccount(String.valueOf(userId), req.getPass(),
+    	String ret = fabric.RegisterWallet(String.valueOf(userId), req.getPass(),
     			req.getNetwork(), req.getToken());
+    	JSONObject obj = JSONObject.parseObject(ret);
+    	result.setCode(obj.getInteger("code"));
+    	result.setMessage(obj.getString("message"));
+    	ResponseWallet wallet = new ResponseWallet();
+    	obj = obj.getJSONObject("result");
+    	wallet.setNetwork(req.getNetwork());
+    	wallet.setToken(req.getToken());
+    	wallet.setHeight(obj.getString("height"));
+    	wallet.setTxid(obj.getString("txid"));
+    	wallet.setAddress(obj.getString("address"));
+    	result.setData(wallet);
+        return result;
+    }
+    
+    @ApiOperation(value="Import wallet")
+    @RequestMapping(value = "", method = RequestMethod.PUT)
+    @RequiresAuthentication
+    public JsonResult<ResponseWallet> importWallet(HttpServletRequest request, @RequestBody RequestWallet req) {
+    	Integer userId = (Integer) request.getAttribute(Constants.CURRENT_USER_ID);
+    	log.debug("call register...");
+    	JsonResult<ResponseWallet> result = new JsonResult<>(HttpStatus.OK);
+    	String ret = fabric.ChaincodeInvoke("orgchannel", "wallet",
+    			"{\"Func\":\"register\", \"Args\":[\""+userId+"\",\""
+    					+req.getAddress()+"\",\""+req.getNetwork()+"\",\""
+    					+req.getToken()+"\",\""+req.getHeight()+"\"]}");
     	JSONObject obj = JSONObject.parseObject(ret);
     	result.setCode(obj.getInteger("code"));
     	result.setMessage(obj.getString("message"));

@@ -17,7 +17,8 @@ public class FabricService {
 
 		public String chaincodeInvoke(String channelID, String chaincodeID, String args);
 		public String chaincodeQuery(String channelID, String chaincodeID, String args);
-		public String newAccount(String accountID, String key, String chain, String token);
+		public String registerWallet(String accountID, String key, String chain, String token);
+		public String importToken(String chain, String token);
 	}
 	
 	private static String libpath = System.getProperty("user.dir")
@@ -50,10 +51,19 @@ public class FabricService {
 	}
 	
 	// 注册代理（托管）钱包地址
-	public String NewAccount(String accountId, String pass, String network, String token){
+	public String RegisterWallet(String accountId, String pass, String chain, String token){
 		String ret = ERR_NULLJNA;
 		if (api != null) {
-			ret =  api.newAccount(accountId, pass, network, token);
+			ret =  api.registerWallet(accountId, pass, chain, token);
+		}
+		log.info(ret);
+		return 	ret;
+	}
+	
+	public String ImportToken(String chain, String token) {
+		String ret = ERR_NULLJNA;
+		if (api != null) {
+			ret =  api.importToken(chain, token);
 		}
 		log.info(ret);
 		return 	ret;

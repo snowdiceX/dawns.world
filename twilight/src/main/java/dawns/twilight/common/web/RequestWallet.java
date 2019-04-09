@@ -10,4 +10,10 @@ public class RequestWallet {
 	private String token;
 	
 	private String pass;
+	
+	private String address;
+	
+	private String txid;
+	
+	private String height;
 }
