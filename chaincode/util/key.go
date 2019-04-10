@@ -11,6 +11,8 @@ const (
 	TagSequence = "Sequence"
 	// TagFunds key prefix of funds
 	TagFunds = "Funds"
+	// TagLogTransaction key prefix of transaction log
+	TagLogTransaction = "LogTransaction"
 )
 
 // BuildAccountKey key of user account
@@ -41,4 +43,10 @@ func BuildFundsAddressKey(baseNetwork, baseToken, network, token,
 	address string) string {
 	return fmt.Sprintf("%s-%s-%s-%s-%s-%s",
 		TagFunds, baseNetwork, baseToken, network, token, address)
+}
+
+// BuildLogTransactionKey key of transfer transaction
+func BuildLogTransactionKey(network, token, height, txhash string) string {
+	return fmt.Sprintf("%s-%s-%s-%s-%s",
+		TagLogTransaction, network, token, height, txhash)
 }

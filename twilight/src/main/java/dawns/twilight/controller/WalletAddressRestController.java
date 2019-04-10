@@ -20,6 +20,7 @@ import dawns.twilight.common.base.BaseRestController;
 import dawns.twilight.common.base.Constants;
 import dawns.twilight.common.chain.FabricService;
 import dawns.twilight.common.web.JsonResult;
+import dawns.twilight.common.web.RegisterTransaction;
 import dawns.twilight.common.web.RequestWallet;
 import dawns.twilight.common.web.ResponseWallet;
 import dawns.twilight.dao.model.WalletAddress;
@@ -71,7 +72,7 @@ public class WalletAddressRestController extends BaseRestController{
     	log.debug("call register...");
     	JsonResult<ResponseWallet> result = new JsonResult<>(HttpStatus.OK);
     	String ret = fabric.ChaincodeInvoke("orgchannel", "wallet",
-    			"{\"Func\":\"register\", \"Args\":[\""+userId+"\",\""
+    			"{\"Func\":\"register\", \"Args\":[\"wallet\", \""+userId+"\",\""
     					+req.getAddress()+"\",\""+req.getNetwork()+"\",\""
     					+req.getToken()+"\",\""+req.getHeight()+"\"]}");
     	JSONObject obj = JSONObject.parseObject(ret);
@@ -127,10 +128,31 @@ public class WalletAddressRestController extends BaseRestController{
     @ApiOperation(value="Paging")
     @RequestMapping(value = "", method = RequestMethod.GET)
     public JsonResult<List<WalletAddress>> page(HttpServletRequest request,
-                                            @RequestParam(value = "pageNum") Integer pageNum,
-                                            @RequestParam(value = "pageSize") Integer pageSize) {
+    		@RequestParam(value = "pageNum") Integer pageNum,
+    		@RequestParam(value = "pageSize") Integer pageSize) {
         WalletAddressExample walletAddressExample=new WalletAddressExample();
         walletAddressExample.setOrderByClause("id");
-        return new JsonResult<>(walletAddressService.selectByExampleForStartPage(walletAddressExample, pageNum,pageSize));
+        return new JsonResult<>(walletAddressService
+        		.selectByExampleForStartPage(walletAddressExample, pageNum,pageSize));
+    }
+    
+    @ApiOperation(value="Register transaction")
+    @RequestMapping(value = "/transaction", method = RequestMethod.POST)
+    @RequiresAuthentication
+    public JsonResult<String> registerTransaction(
+    		HttpServletRequest request, @RequestBody RegisterTransaction req) {
+    	Integer userId = (Integer) request.getAttribute(Constants.CURRENT_USER_ID);
+    	log.debug("call register transaction...");
+    	JsonResult<String> result = new JsonResult<>(HttpStatus.OK);
+    	String json = JSONObject.toJSONString(req);
+    	json = json.replaceAll("\"", "\\\\\"");
+    	log.info("register transaction: "+json);
+    	String ret = fabric.ChaincodeInvoke("orgchannel", "wallet",
+    			"{\"Func\":\"register\", \"Args\":[\"transaction\", \""+json+"\"]}");
+    	JSONObject obj = JSONObject.parseObject(ret);
+    	result.setCode(obj.getInteger("code"));
+    	result.setMessage(obj.getString("message"));
+    	result.setData(ret);
+        return result;
     }
 }

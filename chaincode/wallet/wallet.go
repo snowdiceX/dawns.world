@@ -5,8 +5,8 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -24,6 +24,22 @@ const (
 	// ChaincodeVersion current version of chaincode
 	ChaincodeVersion string = "0.0.1"
 )
+
+// ChaincodeError error of chaincode
+type ChaincodeError struct {
+	code      int
+	errString string
+}
+
+// Code of error
+func (e ChaincodeError) Code() int {
+	return e.code
+}
+
+// Error string
+func (e ChaincodeError) Error() string {
+	return e.errString
+}
 
 // WalletChaincode is wallet Chaincode implementation
 type WalletChaincode struct {
@@ -92,19 +108,49 @@ func (w *WalletChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return w.query(stub, args)
 	}
 	if function == "register" {
-		// register a wallet
 		return w.register(stub, args)
-	}
-	if function == "registerBlock" {
-		// register chain's block
-		return w.registerBlock(stub, args)
 	}
 
 	return shim.Error(fmt.Sprintf("Unknown function call: %s", function))
 }
 
-// Query callback representing the query of a chaincode
-func (w *WalletChaincode) query(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+// register function of the chaincode
+func (w *WalletChaincode) register(
+	stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	l := len(args)
+	what := args[0]
+	switch what {
+	case "wallet":
+		{
+			// register a wallet
+			if l < 5 {
+				return util.Error(http.StatusBadRequest, fmt.Sprintf(
+					"expecting at least 5 arguments, %d", l))
+			}
+			return w.registerWallet(stub, args[1:])
+		}
+	case "block":
+		{
+			// register chain's block
+			return w.registerBlock(stub, args[1:])
+		}
+	case "transaction":
+		{
+			// register chain's transaction
+			if l < 2 {
+				return util.Error(http.StatusBadRequest, fmt.Sprintf(
+					"expecting at least 2 arguments, %d", l))
+			}
+			return w.registerTransaction(stub, args[1:])
+		}
+	}
+	return util.Error(http.StatusBadRequest, fmt.Sprintf(
+		"register failed: Register what? %s", what))
+}
+
+// query function of the chaincode
+func (w *WalletChaincode) query(
+	stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	// if len(args) != 3 {
 	// 	return shim.Error(fmt.Sprintf("Incorrect number of arguments: %v", args))
 	// }
@@ -199,118 +245,29 @@ func (w *WalletChaincode) queryTransactionBySequence(
 	return shim.Success(txBytes)
 }
 
-/**
-* args:
-      0 accountID
-      1 address
-      2 blockchain network
-      3 token name
-      4 blockchain height in hex
-* register key: Register_[userID]_[network]_[token name]
-* wallet key: [network]-[token name]-[address]
-*/
-func (w *WalletChaincode) register(
-	stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	if len(args) < 5 {
-		return util.Error(500, fmt.Sprintf(
-			"expecting at least 5 arguments, %d", len(args)))
-	}
-	_, address, chain, token, heightHex :=
-		args[0], args[1], args[2], args[3], args[4]
-	log.Debug("chaincode[wallet] register", fmt.Sprint(args))
-	var err error
-	if _, err = w.checkInSequence(stub, heightHex); err != nil {
-		log.Debug("in sequence check error: ", err.Error())
-		return util.Error(500, fmt.Sprintf("register failed: %v", err))
-	}
-	seq := atomic.AddUint64(&w.OutSequence, 1)
-	walletSequence := util.WalletSequence{
-		Version:  "v1.0.0",
-		Sequence: strconv.FormatUint(seq, 10),
-		TxID:     string(stub.GetTxID()),
-		Func:     "register",
-		Address:  address,
-		Network:  chain,
-		Token:    token,
-		Height:   heightHex}
-	var bytes []byte
-	bytes, err = json.Marshal(walletSequence)
-	if err != nil {
-		return util.Error(500, fmt.Sprintf("register failed: %v", err))
-	}
-	sequenceKey := util.BuildSequenceKey(seq)
-	log.Debug(`chaincode[wallet] sequence: %s, data: %s`+"\n",
-		sequenceKey, string(bytes))
-	if err = stub.PutState(sequenceKey, bytes); err != nil {
-		return util.Error(500, fmt.Sprintf("register failed: %v", err))
-	}
-	wallet := util.Wallet{
-		Version: "v1.0.0",
-		Chain:   chain,
-		Token:   token,
-		Balance: "0x0",
-		Height:  heightHex,
-		Address: address,
-		TxID:    string(stub.GetTxID()),
-		Agent:   "peer0.org0"}
-	bytes, err = json.Marshal(wallet)
-	if err != nil {
-		return util.Error(500, fmt.Sprintf("register failed: %v", err))
-	}
-	walletKey := util.BuildWalletKey(chain, token, address)
-	log.Debug(`chaincode[wallet] register: %s, data: %s`+"\n",
-		walletKey, string(bytes))
-	if err = stub.PutState(walletKey, bytes); err != nil {
-		return util.Error(500, fmt.Sprintf("register failed: %v", err))
-	}
-	ret := &util.ChainResult{Code: 200, Message: "OK"}
-	ret.Result = walletSequence
-	return util.Success(ret)
-}
-
-/**
-* args:
-      0 blockchain network
-      1 block data
-*/
-func (w *WalletChaincode) registerBlock(
-	stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	network, blockdata := args[0], args[1]
-	return registerChainBlock(network, blockdata)
-}
-
-func (w *WalletChaincode) checkInSequence(
-	stub shim.ChaincodeStubInterface, height string) (h uint64, err error) {
-	if strings.HasPrefix(height, "0x") {
-		height = height[2:]
-	}
-	h, err = strconv.ParseUint(height, 16, 64)
-	if err != nil {
-		msg := fmt.Sprintf("parse height 0x%s error: %v",
-			height, err)
-		err = errors.New(msg)
-		return
-	}
-	if w.InSequence <= 0 {
-		inSeq := atomic.LoadUint64(&w.InSequence)
-		if inSeq > 0 {
-			return
-		}
-		if atomic.CompareAndSwapUint64(&w.InSequence, 0, h) {
-			if err = stub.PutState("Wallet-InSequence",
-				[]byte(height)); err != nil {
-				atomic.StoreUint64(&w.InSequence, 0)
-				err = errors.New("update in sequence error")
-				return
-			}
-		}
-	}
-	return
-}
-
 func main() {
 	err := shim.Start(new(WalletChaincode))
 	if err != nil {
 		fmt.Printf("Error starting WalletChaincode: %s", err)
 	}
+}
+
+func checkState(stub shim.ChaincodeStubInterface,
+	key string, returnExistError bool) ([]byte, *ChaincodeError) {
+	bytes, err := stub.GetState(key)
+	if err != nil {
+		log.Errorf("check state error: %s: %v", key, err)
+		ccErr := &ChaincodeError{
+			code:      http.StatusInternalServerError,
+			errString: fmt.Sprintf("check state error: %s: %v", key, err)}
+		return nil, ccErr
+	}
+	if returnExistError && bytes != nil {
+		log.Warnf("check state error: %s: state exist", key)
+		ccErr := &ChaincodeError{
+			code:      http.StatusConflict,
+			errString: fmt.Sprintf("state exist: %s", key)}
+		return bytes, ccErr
+	}
+	return bytes, nil
 }
