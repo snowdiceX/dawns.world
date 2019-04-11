@@ -4,7 +4,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,7 +11,6 @@ import (
 	"sync/atomic"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
-	"github.com/hyperledger/fabric/protos/ledger/queryresult"
 	pb "github.com/hyperledger/fabric/protos/peer"
 	"github.com/snowdiceX/dawns.world/chaincode/log"
 	"github.com/snowdiceX/dawns.world/chaincode/util"
@@ -240,48 +238,4 @@ func checkState(stub shim.ChaincodeStubInterface,
 		return bytes, ccErr
 	}
 	return bytes, nil
-}
-
-// construct json from iterator
-func constructPageJSON(iterator shim.StateQueryIteratorInterface,
-	metadata *pb.QueryResponseMetadata) (*bytes.Buffer, error) {
-	// buffer is a JSON array containing QueryResults
-	var buffer bytes.Buffer
-	buffer.WriteString(`{"records":[`)
-	if iterator.HasNext() {
-		rec, err := iterator.Next()
-		if err != nil {
-			return nil, err
-		}
-		constructRecordJSON(&buffer, rec)
-	}
-	for iterator.HasNext() {
-		rec, err := iterator.Next()
-		if err != nil {
-			return nil, err
-		}
-		buffer.WriteString(",")
-		constructRecordJSON(&buffer, rec)
-	}
-	buffer.WriteString("]")
-	buffer.WriteString(", \"metadata\":{\"count\":")
-	buffer.WriteString("\"")
-	buffer.WriteString(fmt.Sprintf("%v", metadata.FetchedRecordsCount))
-	buffer.WriteString("\"")
-	buffer.WriteString(", \"bookmark\":")
-	buffer.WriteString("\"")
-	buffer.WriteString(metadata.Bookmark)
-	buffer.WriteString("\"}")
-	buffer.WriteString("}")
-	return &buffer, nil
-}
-
-func constructRecordJSON(buf *bytes.Buffer, record *queryresult.KV) {
-	buf.WriteString("{\"key\":")
-	buf.WriteString("\"")
-	buf.WriteString(record.Key)
-	buf.WriteString("\"")
-	buf.WriteString(", \"record\":")
-	buf.WriteString(string(record.Value))
-	buf.WriteString("}")
 }

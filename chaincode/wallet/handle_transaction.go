@@ -9,12 +9,19 @@ import (
 	"strings"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/hyperledger/fabric/protos/ledger/queryresult"
 	pb "github.com/hyperledger/fabric/protos/peer"
 	"github.com/snowdiceX/dawns.world/chaincode/log"
 	"github.com/snowdiceX/dawns.world/chaincode/util"
 )
 
+type paginationTxs struct {
+	Records  []*registerTx             `json:"records,omitempty"`
+	Metadata *pb.QueryResponseMetadata `json:"metadata,omitempty"`
+}
+
 type registerTx struct {
+	Key      string `json:"key,omitempty"`
 	Chain    string `json:"chain,omitempty"`
 	Token    string `json:"token,omitempty"`
 	Contract string `json:"contract,omitempty"`
@@ -118,16 +125,14 @@ func (w *WalletChaincode) queryTransactions(
 			fmt.Sprintf("paging %s transactions failed: %v", typeTx, err))
 	}
 	defer logIterator.Close()
-	buffer, err := constructPageJSON(logIterator, meta)
+	page, err := constructPage(logIterator, meta)
 	if err != nil {
 		log.Errorf("paging %s transactions error: %v", typeTx, err)
 		return util.Error(http.StatusInternalServerError,
 			fmt.Sprintf("paging %s transactions failed: %v", typeTx, err))
 	}
-	log.Debugf("paging %s transactions result:\n%s\n",
-		typeTx, buffer.String())
 	ret := &util.ChainResult{Code: 200, Message: "OK"}
-	ret.Result = buffer.String()
+	ret.Result = page
 	return util.Success(ret)
 }
 
@@ -178,4 +183,29 @@ func sumTransaction(wallet *util.Wallet, tx *registerTx) (*util.Wallet, *Chainco
 	balance = balance.Add(x, y)
 	wallet.Balance = fmt.Sprintf("0x%s", balance.Text(16))
 	return wallet, nil
+}
+
+// construct a page struct from iterator
+func constructPage(iterator shim.StateQueryIteratorInterface,
+	metadata *pb.QueryResponseMetadata) (*paginationTxs, error) {
+	var recs []*registerTx
+	var rec *queryresult.KV
+	var err error
+	for iterator.HasNext() {
+		rec, err = iterator.Next()
+		if err != nil {
+			return nil, err
+		}
+		rt := &registerTx{}
+		err = json.Unmarshal(rec.Value, rt)
+		if err != nil {
+			return nil, err
+		}
+		rt.Key = rec.Key
+		recs = append(recs, rt)
+	}
+	page := &paginationTxs{}
+	page.Metadata = metadata
+	page.Records = recs
+	return page, nil
 }

@@ -1,8 +1,7 @@
 package dawns.twilight.controller;
 
-import java.util.List;
-
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.alibaba.fastjson.JSONObject;
 
@@ -24,8 +24,6 @@ import dawns.twilight.common.web.RegisterTransaction;
 import dawns.twilight.common.web.RequestWallet;
 import dawns.twilight.common.web.ResponseWallet;
 import dawns.twilight.dao.model.WalletAddress;
-import dawns.twilight.dao.model.WalletAddressExample;
-import dawns.twilight.service.WalletAddressService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
@@ -124,8 +122,11 @@ public class WalletAddressRestController extends BaseRestController{
     }
 
     @ApiOperation(value="Paging registered Txs")
-    @RequestMapping(value = "/transactions/{chain}/{token}/{walletAddress}", method = RequestMethod.GET)
-    public JsonResult<List<WalletAddress>> pageTransactions(HttpServletRequest request,
+    @RequestMapping(value = "/transactions/{chain}/{token}/{walletAddress}",
+    	method = RequestMethod.GET,
+    	produces="application/json;charset=UTF-8")
+    @ResponseBody
+    public String pageTransactions(HttpServletRequest request, HttpServletResponse response,
     		@PathVariable("chain") String chain,
     		@PathVariable("token") String token,
     		@PathVariable("walletAddress") String walletAddress,
@@ -136,9 +137,7 @@ public class WalletAddressRestController extends BaseRestController{
 				+ " \"registered\", \""+chain+"\", \""+token
 				+"\", \"0x"+Integer.toHexString(pageNum)
 				+"\", \"0x"+Integer.toHexString(pageSize)+"\", \""+walletAddress+"\"]}");
-    	JsonResult<List<WalletAddress>> result = new JsonResult<>(HttpStatus.OK);
-    	result.setMessage(ret);
-        return result;
+        return ret;
     }
     
     @ApiOperation(value="Register Tx")
