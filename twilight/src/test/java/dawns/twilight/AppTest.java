@@ -27,6 +27,12 @@ public class AppTest
     {
         return new TestSuite( AppTest.class );
     }
+    
+    public void testHex() {
+    	String hex = Integer.toHexString(255);
+    	System.out.println(hex);
+    	assertTrue( "ff".equalsIgnoreCase(hex) );
+    }
 
     /**
      * Rigourous Test :-)

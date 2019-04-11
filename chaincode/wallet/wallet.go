@@ -4,14 +4,15 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync/atomic"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/hyperledger/fabric/protos/ledger/queryresult"
 	pb "github.com/hyperledger/fabric/protos/peer"
 	"github.com/snowdiceX/dawns.world/chaincode/log"
 	"github.com/snowdiceX/dawns.world/chaincode/util"
@@ -129,11 +130,6 @@ func (w *WalletChaincode) register(
 			}
 			return w.registerWallet(stub, args[1:])
 		}
-	case "block":
-		{
-			// register chain's block
-			return w.registerBlock(stub, args[1:])
-		}
 	case "transaction":
 		{
 			// register chain's transaction
@@ -172,13 +168,13 @@ func (w *WalletChaincode) query(
 
 	// jsonResp := "{\"wallet\":\"" + walletKey + "; " +
 	// 	strconv.FormatUint(w.Sequence, 10) + "\",\"amount\":\"" + string(walletBytes) + "\"}"
-
+	log.Debug("query args: ", strings.Join(args, "; "))
 	if len(args) == 0 || strings.EqualFold("sequence", args[0]) {
 		return w.querySequence(stub)
 	}
 	if strings.EqualFold("transaction", args[0]) {
-		// queries a transaction by sequence
-		return w.queryTransactionBySequence(stub, args)
+		// query transaction
+		return w.queryTransaction(stub, args[1:])
 	}
 	if strings.EqualFold("wallet", args[0]) {
 		// queries a transaction by sequence
@@ -219,32 +215,6 @@ func (w *WalletChaincode) querySequence(
 	return shim.Success([]byte(respJSON))
 }
 
-// queryTransactionBySequence queries a transaction by sequence
-func (w *WalletChaincode) queryTransactionBySequence(
-	stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	if len(args) != 3 {
-		return shim.Error(fmt.Sprintf(
-			"incorrect number of arguments: %v", args))
-	}
-	seq, _ := strconv.ParseUint(args[2], 10, 64)
-	sequenceKey := util.BuildSequenceKey(seq)
-
-	// Get the state from the ledger
-	txBytes, err := stub.GetState(sequenceKey)
-	if err != nil {
-		jsonResp := "{\"Error\":\"failed to get state for " + sequenceKey + "\"}"
-		return shim.Error(jsonResp)
-	}
-
-	if txBytes == nil {
-		jsonResp := "{\"Error\":\"nil amount for " + sequenceKey + "\"}"
-		return shim.Error(jsonResp)
-	}
-
-	fmt.Printf("query Tx by sequence response:%s\n", string(txBytes))
-	return shim.Success(txBytes)
-}
-
 func main() {
 	err := shim.Start(new(WalletChaincode))
 	if err != nil {
@@ -270,4 +240,48 @@ func checkState(stub shim.ChaincodeStubInterface,
 		return bytes, ccErr
 	}
 	return bytes, nil
+}
+
+// construct json from iterator
+func constructPageJSON(iterator shim.StateQueryIteratorInterface,
+	metadata *pb.QueryResponseMetadata) (*bytes.Buffer, error) {
+	// buffer is a JSON array containing QueryResults
+	var buffer bytes.Buffer
+	buffer.WriteString(`{"records":[`)
+	if iterator.HasNext() {
+		rec, err := iterator.Next()
+		if err != nil {
+			return nil, err
+		}
+		constructRecordJSON(&buffer, rec)
+	}
+	for iterator.HasNext() {
+		rec, err := iterator.Next()
+		if err != nil {
+			return nil, err
+		}
+		buffer.WriteString(",")
+		constructRecordJSON(&buffer, rec)
+	}
+	buffer.WriteString("]")
+	buffer.WriteString(", \"metadata\":{\"count\":")
+	buffer.WriteString("\"")
+	buffer.WriteString(fmt.Sprintf("%v", metadata.FetchedRecordsCount))
+	buffer.WriteString("\"")
+	buffer.WriteString(", \"bookmark\":")
+	buffer.WriteString("\"")
+	buffer.WriteString(metadata.Bookmark)
+	buffer.WriteString("\"}")
+	buffer.WriteString("}")
+	return &buffer, nil
+}
+
+func constructRecordJSON(buf *bytes.Buffer, record *queryresult.KV) {
+	buf.WriteString("{\"key\":")
+	buf.WriteString("\"")
+	buf.WriteString(record.Key)
+	buf.WriteString("\"")
+	buf.WriteString(", \"record\":")
+	buf.WriteString(string(record.Value))
+	buf.WriteString("}")
 }

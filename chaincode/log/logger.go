@@ -14,6 +14,11 @@ func Debug(msgs ...interface{}) {
 	fmt.Println(msgs...)
 }
 
+// Debugf output log with debug level
+func Debugf(format string, msgs ...interface{}) {
+	fmt.Println(fmt.Sprintf(format, msgs...))
+}
+
 // Warnf output log with warn level
 func Warnf(format string, msgs ...interface{}) {
 	fmt.Println(fmt.Sprintf(format, msgs...))

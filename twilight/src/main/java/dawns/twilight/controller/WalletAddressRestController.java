@@ -35,8 +35,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("/wallet")
 @Api(value = "wallet api", tags = {"2. Wallet"})
 public class WalletAddressRestController extends BaseRestController{
-    @Autowired
-    private WalletAddressService walletAddressService;
 
     @Autowired
     private FabricService fabric;
@@ -114,7 +112,7 @@ public class WalletAddressRestController extends BaseRestController{
     	return ret;
     }
 
-    @ApiOperation(value="Query transaction")
+    @ApiOperation(value="Query fabric Tx")
     @RequestMapping(value = "/transaction/{sequence}", method = RequestMethod.GET)
     public JsonResult<WalletAddress> getTransaction(HttpServletRequest request,
     		@PathVariable("sequence") String sequence) {
@@ -125,18 +123,25 @@ public class WalletAddressRestController extends BaseRestController{
     	return ret;
     }
 
-    @ApiOperation(value="Paging")
-    @RequestMapping(value = "", method = RequestMethod.GET)
-    public JsonResult<List<WalletAddress>> page(HttpServletRequest request,
+    @ApiOperation(value="Paging registered Txs")
+    @RequestMapping(value = "/transactions/{chain}/{token}/{walletAddress}", method = RequestMethod.GET)
+    public JsonResult<List<WalletAddress>> pageTransactions(HttpServletRequest request,
+    		@PathVariable("chain") String chain,
+    		@PathVariable("token") String token,
+    		@PathVariable("walletAddress") String walletAddress,
     		@RequestParam(value = "pageNum") Integer pageNum,
     		@RequestParam(value = "pageSize") Integer pageSize) {
-        WalletAddressExample walletAddressExample=new WalletAddressExample();
-        walletAddressExample.setOrderByClause("id");
-        return new JsonResult<>(walletAddressService
-        		.selectByExampleForStartPage(walletAddressExample, pageNum,pageSize));
+    	String ret = fabric.ChaincodeQuery("orgchannel", "wallet",
+				"{\"Func\":\"query\", \"Args\":[\"transaction\", \"page\","
+				+ " \"registered\", \""+chain+"\", \""+token
+				+"\", \"0x"+Integer.toHexString(pageNum)
+				+"\", \"0x"+Integer.toHexString(pageSize)+"\", \""+walletAddress+"\"]}");
+    	JsonResult<List<WalletAddress>> result = new JsonResult<>(HttpStatus.OK);
+    	result.setMessage(ret);
+        return result;
     }
     
-    @ApiOperation(value="Register transaction")
+    @ApiOperation(value="Register Tx")
     @RequestMapping(value = "/transaction", method = RequestMethod.POST)
     @RequiresAuthentication
     public JsonResult<String> registerTransaction(

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -75,6 +76,81 @@ func (w *WalletChaincode) registerTransaction(
 	ret := &util.ChainResult{Code: 200, Message: "OK"}
 	ret.Result = tx
 	return util.Success(ret)
+}
+
+func (w *WalletChaincode) queryTransaction(
+	stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	what := args[0]
+	switch what {
+	case "sequence":
+		{
+			if len(args) < 2 {
+				return shim.Error("insufficient parameters")
+			}
+			// queries a transaction by sequence
+			return w.queryTransactionBySequence(stub, args[1])
+		}
+	case "page":
+		{
+			if len(args) < 7 {
+				return shim.Error("insufficient parameters")
+			}
+			// query transactions
+			return w.queryTransactions(stub, args[1:])
+		}
+	}
+	return util.Error(http.StatusBadRequest, fmt.Sprintf(
+		"query transaction failed: Query what? %s", what))
+}
+
+func (w *WalletChaincode) queryTransactions(
+	stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	typeTx, chain, token, pageNumHex, pageSizeHex, walletAddress :=
+		args[0], args[1], args[2], args[3], args[4], args[5]
+	log.Debug(chain, token, pageNumHex, pageSizeHex, walletAddress)
+	pageSize, _ := strconv.ParseInt(pageSizeHex, 10, 32)
+	startKey := util.BuildLogTransactionStartKey(chain, token, "")
+	logIterator, meta, err := stub.GetStateByRangeWithPagination(
+		startKey, startKey+"a", int32(pageSize), "")
+	if err != nil {
+		log.Errorf("paging %s transactions error: %v", typeTx, err)
+		return util.Error(http.StatusInternalServerError,
+			fmt.Sprintf("paging %s transactions failed: %v", typeTx, err))
+	}
+	defer logIterator.Close()
+	buffer, err := constructPageJSON(logIterator, meta)
+	if err != nil {
+		log.Errorf("paging %s transactions error: %v", typeTx, err)
+		return util.Error(http.StatusInternalServerError,
+			fmt.Sprintf("paging %s transactions failed: %v", typeTx, err))
+	}
+	log.Debugf("paging %s transactions result:\n%s\n",
+		typeTx, buffer.String())
+	ret := &util.ChainResult{Code: 200, Message: "OK"}
+	ret.Result = buffer.String()
+	return util.Success(ret)
+}
+
+// queryTransactionBySequence queries a transaction by sequence
+func (w *WalletChaincode) queryTransactionBySequence(
+	stub shim.ChaincodeStubInterface, sequence string) pb.Response {
+	seq, _ := strconv.ParseUint(sequence, 10, 64)
+	sequenceKey := util.BuildSequenceKey(seq)
+
+	// Get the state from the ledger
+	txBytes, err := stub.GetState(sequenceKey)
+	if err != nil {
+		jsonResp := "{\"Error\":\"failed to get state for " + sequenceKey + "\"}"
+		return shim.Error(jsonResp)
+	}
+
+	if txBytes == nil {
+		jsonResp := "{\"Error\":\"nil amount for " + sequenceKey + "\"}"
+		return shim.Error(jsonResp)
+	}
+
+	fmt.Printf("query Tx by sequence response:%s\n", string(txBytes))
+	return shim.Success(txBytes)
 }
 
 func sumTransaction(wallet *util.Wallet, tx *registerTx) (*util.Wallet, *ChaincodeError) {

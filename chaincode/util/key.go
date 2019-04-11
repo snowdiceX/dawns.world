@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"strings"
 )
 
 const (
@@ -11,8 +12,8 @@ const (
 	TagSequence = "Sequence"
 	// TagFunds key prefix of funds
 	TagFunds = "Funds"
-	// TagLogTransaction key prefix of transaction log
-	TagLogTransaction = "LogTransaction"
+	// TagLogRegisteredTx key prefix of registered transaction log
+	TagLogRegisteredTx = "LogRegisteredTx"
 )
 
 // BuildAccountKey key of user account
@@ -47,6 +48,11 @@ func BuildFundsAddressKey(baseNetwork, baseToken, network, token,
 
 // BuildLogTransactionKey key of transfer transaction
 func BuildLogTransactionKey(network, token, height, txhash string) string {
-	return fmt.Sprintf("%s-%s-%s-%s-%s",
-		TagLogTransaction, network, token, height, txhash)
+	return BuildLogTransactionStartKey(network, token, height, txhash)
+}
+
+// BuildLogTransactionStartKey key for query registered transactions
+func BuildLogTransactionStartKey(network, token string, args ...string) string {
+	return fmt.Sprintf("%s-%s-%s-%s",
+		TagLogRegisteredTx, network, token, strings.Join(args, "-"))
 }

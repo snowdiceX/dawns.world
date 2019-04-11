@@ -32,7 +32,7 @@ func (w *WalletChaincode) registerWallet(
 	log.Debug("chaincode[wallet] register", fmt.Sprint(args))
 	var err error
 	if _, err = w.checkInSequence(stub, heightHex); err != nil {
-		log.Debug("in sequence check error: ", err.Error())
+		log.Errorf("in sequence check error: %v", err)
 		return util.Error(http.StatusBadRequest, fmt.Sprintf(
 			"register failed: %v", err))
 	}
