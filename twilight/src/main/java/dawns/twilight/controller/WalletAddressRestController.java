@@ -37,7 +37,9 @@ public class WalletAddressRestController extends BaseRestController{
     @Autowired
     private FabricService fabric;
     
-    @ApiOperation(value="Register wallet")
+    @ApiOperation(value="Register wallet",
+    		notes="注册托管钱包",
+    		tags="Register")
     @RequestMapping(value = "", method = RequestMethod.POST)
     @RequiresAuthentication
     public JsonResult<ResponseWallet> register(HttpServletRequest request, @RequestBody RequestWallet req) {
@@ -60,7 +62,19 @@ public class WalletAddressRestController extends BaseRestController{
         return result;
     }
     
-    @ApiOperation(value="Import wallet")
+    @ApiOperation(value="Withdraw", notes="托管钱包提取")
+    @RequestMapping(value = "/withdraw",
+    		method = RequestMethod.POST,
+    		produces="application/json;charset=UTF-8")
+    @ResponseBody
+    @RequiresAuthentication
+    public String withdraw(HttpServletRequest request, @RequestBody RequestWallet req) {
+    	return "";
+    }
+    
+    @ApiOperation(value="Import wallet",
+    		notes="！！！仅用于测试！！！导入托管钱包",
+    		tags="Register")
     @RequestMapping(value = "", method = RequestMethod.PUT)
     @RequiresAuthentication
     public JsonResult<ResponseWallet> importWallet(HttpServletRequest request, @RequestBody RequestWallet req) {
@@ -123,8 +137,8 @@ public class WalletAddressRestController extends BaseRestController{
 
     @ApiOperation(value="Paging registered Txs")
     @RequestMapping(value = "/transactions/{chain}/{token}/{walletAddress}",
-    	method = RequestMethod.GET,
-    	produces="application/json;charset=UTF-8")
+    		method = RequestMethod.GET,
+    		produces="application/json;charset=UTF-8")
     @ResponseBody
     public String pageTransactions(HttpServletRequest request, HttpServletResponse response,
     		@PathVariable("chain") String chain,
@@ -140,12 +154,12 @@ public class WalletAddressRestController extends BaseRestController{
         return ret;
     }
     
-    @ApiOperation(value="Register Tx")
+    @ApiOperation(value="Register Tx",
+    		notes="注册经过共识的外部区块链网络交易(非应用接口，由拥有授权证书的中继对网络和交易适配并共识后调用)",
+    		tags="Register")
     @RequestMapping(value = "/transaction", method = RequestMethod.POST)
-    @RequiresAuthentication
     public JsonResult<String> registerTransaction(
     		HttpServletRequest request, @RequestBody RegisterTransaction req) {
-    	Integer userId = (Integer) request.getAttribute(Constants.CURRENT_USER_ID);
     	log.debug("call register transaction...");
     	JsonResult<String> result = new JsonResult<>(HttpStatus.OK);
     	String json = JSONObject.toJSONString(req);

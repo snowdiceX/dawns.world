@@ -1,7 +1,10 @@
 package util
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
@@ -47,4 +50,11 @@ func Error(code int, errMsg string) pb.Response {
 	log.Error("json marshal error: ", err)
 	log.Info("response: ", errJSON)
 	return shim.Error(errJSON)
+}
+
+// Hash return hash string of args
+func Hash(args ...interface{}) string {
+	hash := md5.New()
+	hash.Write([]byte(fmt.Sprint(args...)))
+	return hex.EncodeToString(hash.Sum(nil))
 }

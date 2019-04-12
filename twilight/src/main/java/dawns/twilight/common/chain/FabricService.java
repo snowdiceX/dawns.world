@@ -18,7 +18,7 @@ public class FabricService {
 		public String chaincodeInvoke(String channelID, String chaincodeID, String args);
 		public String chaincodeQuery(String channelID, String chaincodeID, String args);
 		public String registerWallet(String accountID, String key, String chain, String token);
-		public String importToken(String chain, String token);
+		public String registerToken(String chain, String token);
 	}
 	
 	private static String libpath = System.getProperty("user.dir")
@@ -60,10 +60,25 @@ public class FabricService {
 		return 	ret;
 	}
 	
-	public String ImportToken(String chain, String token) {
+	public String RegisterToken(String chain, String token) {
 		String ret = ERR_NULLJNA;
 		if (api != null) {
-			ret =  api.importToken(chain, token);
+			ret =  api.registerToken(chain, token);
+		}
+		log.info(ret);
+		return 	ret;
+	}
+	
+	public String RegisterFunds(String baseChain, String baseToken, String chain, String token) {
+		String ret = ERR_NULLJNA;
+		if (api != null) {
+			StringBuilder buf = new StringBuilder();
+			buf.append("{\"Func\":\"register\", \"Args\":[\"funds\", \"")
+			.append(baseChain).append("\", \"")
+			.append(baseToken).append("\", \"")
+			.append(chain).append("\", \"")
+			.append(token).append("\"]}");
+			ret =  api.chaincodeInvoke("orgchannel", "wallet", buf.toString());
 		}
 		log.info(ret);
 		return 	ret;

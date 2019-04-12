@@ -21,7 +21,10 @@ const (
 	createtime = "Createtime" // CREATETIME key of init time of chaincode
 
 	// ChaincodeVersion current version of chaincode
-	ChaincodeVersion string = "0.0.1"
+	ChaincodeVersion string = "v0.0.1"
+
+	// ZeroBalance initial value
+	ZeroBalance string = "0x0"
 )
 
 // ChaincodeError error of chaincode
@@ -117,7 +120,7 @@ func (w *WalletChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 func (w *WalletChaincode) register(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	l := len(args)
-	what := args[0]
+	what := strings.ToLower(args[0])
 	switch what {
 	case "wallet":
 		{
@@ -137,6 +140,14 @@ func (w *WalletChaincode) register(
 			}
 			return w.registerTransaction(stub, args[1:])
 		}
+	case "token":
+		{
+			return w.registerToken(stub, args[1:])
+		}
+	case "funds":
+		{
+			return w.registerFunds(stub, args[1:])
+		}
 	}
 	return util.Error(http.StatusBadRequest, fmt.Sprintf(
 		"register failed: Register what? %s", what))
@@ -145,41 +156,35 @@ func (w *WalletChaincode) register(
 // query function of the chaincode
 func (w *WalletChaincode) query(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	// if len(args) != 3 {
-	// 	return shim.Error(fmt.Sprintf("Incorrect number of arguments: %v", args))
-	// }
-	// walletKey := buildWalletKey(args[0], args[1], args[2])
-
-	// // Get the state from the ledger
-	// walletBytes, err := stub.GetState(walletKey)
-	// if err != nil {
-	// 	jsonResp := "{\"Error\":\"Failed to get state for " + walletKey + "; " +
-	// 		strconv.FormatUint(w.Sequence, 10) + "\"}"
-	// 	return shim.Error(jsonResp)
-	// }
-
-	// if walletBytes == nil {
-	// 	jsonResp := "{\"Error\":\"Nil amount for " + walletKey + "; " +
-	// 		strconv.FormatUint(w.Sequence, 10) + "\"}"
-	// 	return shim.Error(jsonResp)
-	// }
-
-	// jsonResp := "{\"wallet\":\"" + walletKey + "; " +
-	// 	strconv.FormatUint(w.Sequence, 10) + "\",\"amount\":\"" + string(walletBytes) + "\"}"
 	log.Debug("query args: ", strings.Join(args, "; "))
-	if len(args) == 0 || strings.EqualFold("sequence", args[0]) {
-		return w.querySequence(stub)
+	what := args[0]
+	switch what {
+	case "sequence":
+		{
+			return w.querySequence(stub)
+		}
+	case "transaction":
+		{
+			// query transaction
+			return w.queryTransaction(stub, args[1:])
+		}
+	case "wallet":
+		{
+			// queries wallet
+			return w.queryWallet(stub, args[1], args[2], args[3])
+		}
+	case "token":
+		{
+			// queries token
+			return w.queryToken(stub, args[1:])
+		}
+	case "funds":
+		{
+			// queries funds
+			return w.queryFunds(stub, args[1:])
+		}
 	}
-	if strings.EqualFold("transaction", args[0]) {
-		// query transaction
-		return w.queryTransaction(stub, args[1:])
-	}
-	if strings.EqualFold("wallet", args[0]) {
-		// queries a transaction by sequence
-		return w.queryWallet(stub, args[1], args[2], args[3])
-	}
-
-	return shim.Error(fmt.Sprintf("Unknown query function call: %s", args[0]))
+	return shim.Error(fmt.Sprintf("query failed: Query what? %s", what))
 }
 
 func (w *WalletChaincode) queryWallet(stub shim.ChaincodeStubInterface,
@@ -231,11 +236,12 @@ func checkState(stub shim.ChaincodeStubInterface,
 		return nil, ccErr
 	}
 	if returnExistError && bytes != nil {
-		log.Warnf("check state error: %s: state exist", key)
+		log.Warnf("check state error: %s: state exist ", key)
 		ccErr := &ChaincodeError{
 			code:      http.StatusConflict,
 			errString: fmt.Sprintf("state exist: %s", key)}
 		return bytes, ccErr
 	}
+	log.Debug("!!!!!!no error!!!!!!!!!!!!")
 	return bytes, nil
 }

@@ -16,7 +16,7 @@ import (
 )
 
 type paginationTxs struct {
-	Records  []*registerTx             `json:"records,omitempty"`
+	Records  []interface{}             `json:"records,omitempty"`
 	Metadata *pb.QueryResponseMetadata `json:"metadata,omitempty"`
 }
 
@@ -103,14 +103,14 @@ func (w *WalletChaincode) queryTransaction(
 				return shim.Error("insufficient parameters")
 			}
 			// query transactions
-			return w.queryTransactions(stub, args[1:])
+			return w.paginationTransactions(stub, args[1:])
 		}
 	}
 	return util.Error(http.StatusBadRequest, fmt.Sprintf(
 		"query transaction failed: Query what? %s", what))
 }
 
-func (w *WalletChaincode) queryTransactions(
+func (w *WalletChaincode) paginationTransactions(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	typeTx, chain, token, pageNumHex, pageSizeHex, walletAddress :=
 		args[0], args[1], args[2], args[3], args[4], args[5]
@@ -188,7 +188,7 @@ func sumTransaction(wallet *util.Wallet, tx *registerTx) (*util.Wallet, *Chainco
 // construct a page struct from iterator
 func constructPage(iterator shim.StateQueryIteratorInterface,
 	metadata *pb.QueryResponseMetadata) (*paginationTxs, error) {
-	var recs []*registerTx
+	var recs []interface{}
 	var rec *queryresult.KV
 	var err error
 	for iterator.HasNext() {
