@@ -4,13 +4,11 @@ import lombok.Data;
 
 @Data
 public class RegisterTransaction {
-
 	private String chain;
-	private String Token;
-	private String Contract;
-	private String From;
-	private String To;
-	private String Amount;
-	private String Txhash;
-	private String Height;
+	private String token;
+	private String contract;
+	private String from;
+	private String to;
+	private String amount;
+	private String txhash;
 }

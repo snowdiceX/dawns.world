@@ -131,14 +131,14 @@ func (w *WalletChaincode) register(
 			}
 			return w.registerWallet(stub, args[1:])
 		}
-	case "transaction":
+	case "block":
 		{
 			// register chain's transaction
 			if l < 2 {
 				return util.Error(http.StatusBadRequest, fmt.Sprintf(
 					"expecting at least 2 arguments, %d", l))
 			}
-			return w.registerTransaction(stub, args[1:])
+			return w.registerBlock(stub, args[1:])
 		}
 	case "token":
 		{

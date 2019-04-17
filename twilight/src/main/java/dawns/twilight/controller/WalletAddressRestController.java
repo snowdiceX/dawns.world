@@ -20,7 +20,7 @@ import dawns.twilight.common.base.BaseRestController;
 import dawns.twilight.common.base.Constants;
 import dawns.twilight.common.chain.FabricService;
 import dawns.twilight.common.web.JsonResult;
-import dawns.twilight.common.web.RegisterTransaction;
+import dawns.twilight.common.web.RegisterBlock;
 import dawns.twilight.common.web.RequestWallet;
 import dawns.twilight.common.web.ResponseWallet;
 import dawns.twilight.dao.model.WalletAddress;
@@ -157,23 +157,23 @@ public class WalletAddressRestController extends BaseRestController{
         return ret;
     }
     
-    @ApiOperation(value="Register Tx",
-    		notes="注册经过共识的外部区块链网络交易(非应用接口，由拥有授权证书的中继对网络和交易适配并共识后调用)",
+    @ApiOperation(value="Register block",
+    		notes="注册经过共识的外部区块链网络交易(非应用接口，由拥有授权证书的中继对网络和交易适配并共识后调用)。\n" +
+    				"为方便处理，交易按块进行打包。",
     		tags="Register")
-    @RequestMapping(value = "/transaction", method = RequestMethod.POST)
-    public JsonResult<String> registerTransaction(
-    		HttpServletRequest request, @RequestBody RegisterTransaction req) {
-    	log.debug("call register transaction...");
-    	JsonResult<String> result = new JsonResult<>(HttpStatus.OK);
+    @RequestMapping(value = "/block",
+    		method = RequestMethod.POST,
+    		produces="application/json;charset=UTF-8")
+    @ResponseBody
+    public String registerBlock(
+    		HttpServletRequest request, @RequestBody RegisterBlock req) {
+    	log.debug("call register block...");
     	String json = JSONObject.toJSONString(req);
     	json = json.replaceAll("\"", "\\\\\"");
-    	log.info("register transaction: "+json);
+    	log.info("register block: "+json);
     	String ret = fabric.ChaincodeInvoke("orgchannel", "wallet",
-    			"{\"Func\":\"register\", \"Args\":[\"transaction\", \""+json+"\"]}");
-    	JSONObject obj = JSONObject.parseObject(ret);
-    	result.setCode(obj.getInteger("code"));
-    	result.setMessage(obj.getString("message"));
-    	result.setData(ret);
-        return result;
+    			"{\"Func\":\"register\", \"Args\":[\"block\", \""+json+"\"]}");
+    	log.info("chain call result: "+ret);
+        return ret;
     }
 }

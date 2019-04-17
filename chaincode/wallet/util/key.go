@@ -88,11 +88,16 @@ func BuildFundsAddressKey(baseNetwork, baseToken, network, token,
 
 // BuildLogTransactionKey key of transfer transaction
 func BuildLogTransactionKey(network, token, height, txhash string) string {
-	return BuildLogTransactionStartKey(network, token, height, txhash)
+	return BuildLogTransactionStartKey(network, token,
+		strings.ToUpper(height),
+		strings.ToUpper(txhash))
 }
 
 // BuildLogTransactionStartKey key for query registered transaction list
 func BuildLogTransactionStartKey(network, token string, args ...string) string {
 	return fmt.Sprintf("%s-%s-%s-%s",
-		TagLogRegisteredTx, network, token, strings.Join(args, "-"))
+		TagLogRegisteredTx,
+		strings.ToUpper(network),
+		strings.ToUpper(token),
+		strings.Join(args, "-"))
 }

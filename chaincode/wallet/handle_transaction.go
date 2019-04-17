@@ -20,7 +20,8 @@ type paginationTxs struct {
 	Metadata *pb.QueryResponseMetadata `json:"metadata,omitempty"`
 }
 
-type registerTx struct {
+// TxRegister registered Tx
+type TxRegister struct {
 	Key      string `json:"key,omitempty"`
 	Chain    string `json:"chain,omitempty"`
 	Token    string `json:"token,omitempty"`
@@ -32,56 +33,74 @@ type registerTx struct {
 	Height   string `json:"height,omitempty"`
 }
 
-func (w *WalletChaincode) registerTransaction(
+// BlockRegister registered block
+type BlockRegister struct {
+	Height string        `json:"height,omitempty"`
+	Txs    []*TxRegister `json:"transactions,omitempty"`
+}
+
+func (w *WalletChaincode) registerBlock(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	tx := &registerTx{}
-	err := json.Unmarshal([]byte(args[0]), tx)
+	block := &BlockRegister{}
+	err := json.Unmarshal([]byte(args[0]), block)
 	if err != nil {
 		log.Errorf("parse error: %v\n    json: %s\n", err, args[0])
 		return util.Error(http.StatusBadRequest, fmt.Sprintf(
 			"register failed: %v", err))
 	}
-	logKey := util.BuildLogTransactionKey(tx.Chain, tx.Token, tx.Height, tx.Txhash)
-	bytes, ccErr := checkState(stub, logKey, true)
-	if ccErr != nil {
-		return util.Error(ccErr.Code(),
-			fmt.Sprintf("register failed: %v", ccErr))
-	}
-	if err = stub.PutState(logKey, []byte(args[0])); err != nil {
-		log.Errorf("put state error: %s: %v", logKey, err)
-		return util.Error(http.StatusInternalServerError,
-			fmt.Sprintf("register failed: %v", err))
-	}
-	walletKey := util.BuildWalletKey(tx.Chain, tx.Token, tx.To)
-	bytes, ccErr = checkState(stub, walletKey, false)
-	if ccErr != nil {
-		return util.Error(ccErr.Code(),
-			fmt.Sprintf("register failed: %v", ccErr))
-	}
-	if bytes == nil {
-		log.Errorf("wallet not found: %s", walletKey)
-		return util.Error(http.StatusInternalServerError,
-			fmt.Sprintf("wallet not found: %s", walletKey))
-	}
-	wallet := &util.Wallet{}
-	if err = json.Unmarshal(bytes, wallet); err != nil {
-		log.Errorf("parse state error: %v\n    json: %s", err, string(bytes))
-		return util.Error(http.StatusInternalServerError, fmt.Sprintf(
-			"register failed: %v", err))
-	}
-	wallet, err = sumTransaction(wallet, tx)
-	if bytes, err = json.Marshal(wallet); err != nil {
-		log.Errorf("json marshal error: %s: %v", walletKey, err)
-		return util.Error(http.StatusInternalServerError,
-			fmt.Sprintf("register failed: %v", err))
-	}
-	if err = stub.PutState(walletKey, bytes); err != nil {
-		log.Errorf("put state error: %s: %v", logKey, err)
-		return util.Error(http.StatusInternalServerError,
-			fmt.Sprintf("register failed: %v", err))
+	var bytes []byte
+	var ccErr *ChaincodeError
+	for _, tx := range block.Txs {
+		tx.Height = block.Height
+		logKey := util.BuildLogTransactionKey(tx.Chain, tx.Token, tx.Height, tx.Txhash)
+		bytes, ccErr = checkState(stub, logKey, true)
+		if ccErr != nil {
+			log.Errorf("register failed: %v", ccErr)
+			return util.Error(ccErr.Code(),
+				fmt.Sprintf("register failed: %v", ccErr))
+		}
+		if bytes, err = json.Marshal(tx); err != nil {
+			log.Errorf("register failed: %v", err)
+			return util.Error(http.StatusInternalServerError,
+				fmt.Sprintf("register failed: %v", err))
+		}
+		if err = stub.PutState(logKey, bytes); err != nil {
+			log.Errorf("put state error: %s: %v", logKey, err)
+			return util.Error(http.StatusInternalServerError,
+				fmt.Sprintf("register failed: %v", err))
+		}
+		walletKey := util.BuildWalletKey(tx.Chain, tx.Token, tx.To)
+		bytes, ccErr = checkState(stub, walletKey, false)
+		if ccErr != nil {
+			log.Errorf("register failed: %v", ccErr)
+			return util.Error(ccErr.Code(),
+				fmt.Sprintf("register failed: %v", ccErr))
+		}
+		if bytes == nil {
+			log.Errorf("wallet not found: %s", walletKey)
+			return util.Error(http.StatusInternalServerError,
+				fmt.Sprintf("wallet not found: %s", walletKey))
+		}
+		wallet := &util.Wallet{}
+		if err = json.Unmarshal(bytes, wallet); err != nil {
+			log.Errorf("parse state error: %v\n    json: %s", err, string(bytes))
+			return util.Error(http.StatusInternalServerError, fmt.Sprintf(
+				"register failed: %v", err))
+		}
+		wallet, err = sumTransaction(wallet, tx)
+		if bytes, err = json.Marshal(wallet); err != nil {
+			log.Errorf("json marshal error: %s: %v", walletKey, err)
+			return util.Error(http.StatusInternalServerError,
+				fmt.Sprintf("register failed: %v", err))
+		}
+		if err = stub.PutState(walletKey, bytes); err != nil {
+			log.Errorf("put state error: %s: %v", logKey, err)
+			return util.Error(http.StatusInternalServerError,
+				fmt.Sprintf("register failed: %v", err))
+		}
 	}
 	ret := &util.ChainResult{Code: 200, Message: "OK"}
-	ret.Result = tx
+	ret.Result = len(block.Txs)
 	return util.Success(ret)
 }
 
@@ -158,7 +177,7 @@ func (w *WalletChaincode) queryTransactionBySequence(
 	return shim.Success(txBytes)
 }
 
-func sumTransaction(wallet *util.Wallet, tx *registerTx) (*util.Wallet, *ChaincodeError) {
+func sumTransaction(wallet *util.Wallet, tx *TxRegister) (*util.Wallet, *ChaincodeError) {
 	if wallet == nil || tx == nil ||
 		!strings.EqualFold(wallet.Chain, tx.Chain) ||
 		!strings.EqualFold(wallet.Token, tx.Token) ||
@@ -196,13 +215,13 @@ func constructPage(iterator shim.StateQueryIteratorInterface,
 		if err != nil {
 			return nil, err
 		}
-		rt := &registerTx{}
-		err = json.Unmarshal(rec.Value, rt)
+		tx := &TxRegister{}
+		err = json.Unmarshal(rec.Value, tx)
 		if err != nil {
 			return nil, err
 		}
-		rt.Key = rec.Key
-		recs = append(recs, rt)
+		tx.Key = rec.Key
+		recs = append(recs, tx)
 	}
 	page := &paginationTxs{}
 	page.Metadata = metadata
