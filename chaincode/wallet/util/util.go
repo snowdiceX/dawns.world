@@ -8,7 +8,7 @@ import (
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
-	"github.com/snowdiceX/dawns.world/chaincode/log"
+	"github.com/snowdiceX/dawns.world/chaincode/wallet/log"
 )
 
 const (

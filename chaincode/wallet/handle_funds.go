@@ -10,8 +10,8 @@ import (
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/protos/ledger/queryresult"
 	pb "github.com/hyperledger/fabric/protos/peer"
-	"github.com/snowdiceX/dawns.world/chaincode/log"
-	"github.com/snowdiceX/dawns.world/chaincode/util"
+	"github.com/snowdiceX/dawns.world/chaincode/wallet/log"
+	"github.com/snowdiceX/dawns.world/chaincode/wallet/util"
 )
 
 // TokenBalance records balance of token
