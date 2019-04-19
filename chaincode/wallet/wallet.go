@@ -242,6 +242,5 @@ func checkState(stub shim.ChaincodeStubInterface,
 			errString: fmt.Sprintf("state exist: %s", key)}
 		return bytes, ccErr
 	}
-	log.Debug("!!!!!!no error!!!!!!!!!!!!")
 	return bytes, nil
 }

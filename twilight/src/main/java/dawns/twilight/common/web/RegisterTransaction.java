@@ -10,5 +10,7 @@ public class RegisterTransaction {
 	private String from;
 	private String to;
 	private String amount;
+	private String gas;
+	private String gasPrice;
 	private String txhash;
 }

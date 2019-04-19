@@ -29,6 +29,8 @@ type TxRegister struct {
 	From     string `json:"from,omitempty"`
 	To       string `json:"to,omitempty"`
 	Amount   string `json:"amount,omitempty"`
+	Gas      string `json:"gas,omitempty"`
+	GasPrice string `json:"gasPrice,omitempty"`
 	Txhash   string `json:"txhash,omitempty"`
 	Height   string `json:"height,omitempty"`
 }
@@ -41,6 +43,7 @@ type BlockRegister struct {
 
 func (w *WalletChaincode) registerBlock(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	log.Info("register block: ", args[0])
 	block := &BlockRegister{}
 	err := json.Unmarshal([]byte(args[0]), block)
 	if err != nil {
@@ -55,6 +58,9 @@ func (w *WalletChaincode) registerBlock(
 		logKey := util.BuildLogTransactionKey(tx.Chain, tx.Token, tx.Height, tx.Txhash)
 		bytes, ccErr = checkState(stub, logKey, true)
 		if ccErr != nil {
+			if ccErr.Code() == http.StatusConflict {
+				continue
+			}
 			log.Errorf("register failed: %v", ccErr)
 			return util.Error(ccErr.Code(),
 				fmt.Sprintf("register failed: %v", ccErr))
@@ -75,6 +81,15 @@ func (w *WalletChaincode) registerBlock(
 			log.Errorf("register failed: %v", ccErr)
 			return util.Error(ccErr.Code(),
 				fmt.Sprintf("register failed: %v", ccErr))
+		}
+		if bytes == nil {
+			walletKey = util.BuildWalletKey(tx.Chain, tx.Token, tx.From)
+			bytes, ccErr = checkState(stub, walletKey, false)
+			if ccErr != nil {
+				log.Errorf("register failed: %v", ccErr)
+				return util.Error(ccErr.Code(),
+					fmt.Sprintf("register failed: %v", ccErr))
+			}
 		}
 		if bytes == nil {
 			log.Errorf("wallet not found: %s", walletKey)
@@ -180,8 +195,7 @@ func (w *WalletChaincode) queryTransactionBySequence(
 func sumTransaction(wallet *util.Wallet, tx *TxRegister) (*util.Wallet, *ChaincodeError) {
 	if wallet == nil || tx == nil ||
 		!strings.EqualFold(wallet.Chain, tx.Chain) ||
-		!strings.EqualFold(wallet.Token, tx.Token) ||
-		!strings.EqualFold(wallet.Address, tx.To) {
+		!strings.EqualFold(wallet.Token, tx.Token) {
 		return nil, &ChaincodeError{
 			code: http.StatusInternalServerError,
 			errString: fmt.Sprintf("wrong wallet: %s, %s, %s/ %s, %s, %s",
@@ -194,14 +208,40 @@ func sumTransaction(wallet *util.Wallet, tx *TxRegister) (*util.Wallet, *Chainco
 			errString: fmt.Sprintf(
 				`amount "%s" should be prefixed with 0x`, tx.Amount)}
 	}
-	balance := new(big.Int)
-	x := new(big.Int)
-	x.SetString(wallet.Balance[2:], 16)
-	y := new(big.Int)
-	y.SetString(tx.Amount[2:], 16)
-	balance = balance.Add(x, y)
-	wallet.Balance = fmt.Sprintf("0x%s", balance.Text(16))
-	return wallet, nil
+	if strings.EqualFold(wallet.Address, tx.To) &&
+		!strings.EqualFold(wallet.Address, tx.From) {
+		balance := new(big.Int)
+		x := new(big.Int)
+		x.SetString(wallet.Balance[2:], 16)
+		y := new(big.Int)
+		y.SetString(tx.Amount[2:], 16)
+		balance = balance.Add(x, y)
+		wallet.Balance = fmt.Sprintf("0x%s", balance.Text(16))
+		log.Info("wallet balance: ", wallet.Balance)
+		return wallet, nil
+	}
+	if !strings.EqualFold(wallet.Address, tx.To) &&
+		strings.EqualFold(wallet.Address, tx.From) {
+		balance := new(big.Int)
+		balance.SetString(wallet.Balance[2:], 16)
+		y := new(big.Int)
+		y.SetString(tx.Amount[2:], 16)
+		balance = balance.Sub(balance, y)
+		g := new(big.Int)
+		g.SetString(tx.Gas[2:], 16)
+		gp := new(big.Int)
+		gp.SetString(tx.GasPrice[2:], 16)
+		g = g.Mul(g, gp)
+		balance = balance.Sub(balance, g)
+		wallet.Balance = fmt.Sprintf("0x%s", balance.Text(16))
+		log.Info("wallet balance: ", wallet.Balance)
+		return wallet, nil
+	}
+	return nil, &ChaincodeError{
+		code: http.StatusBadRequest,
+		errString: fmt.Sprintf(
+			`incorrect address, wallet: %s from: %s, to: %s`,
+			wallet.Address, tx.From, tx.To)}
 }
 
 // construct a page struct from iterator

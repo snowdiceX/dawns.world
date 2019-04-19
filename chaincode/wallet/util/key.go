@@ -30,7 +30,10 @@ func BuildAccountKey(chain, token, accountID, address string) string {
 
 // BuildWalletKey key of wallet address
 func BuildWalletKey(network, token, address string) string {
-	return fmt.Sprintf("%s-%s-%s-%s", TagWallet, network, token, address)
+	return fmt.Sprintf("%s-%s-%s-%s", TagWallet,
+		strings.ToUpper(network),
+		strings.ToUpper(token),
+		strings.ToUpper(address))
 }
 
 // BuildSequenceKey key of tx sequence
