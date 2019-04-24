@@ -27,8 +27,8 @@ import (
 */
 func (w *WalletChaincode) registerWallet(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	_, address, chain, token, heightHex :=
-		args[0], args[1], args[2], args[3], args[4]
+	address, chain, token, heightHex :=
+		args[0], args[1], args[2], args[3]
 	log.Debug("chaincode[wallet] register", fmt.Sprint(args))
 	var err error
 	if _, err = w.checkInSequence(stub, heightHex); err != nil {

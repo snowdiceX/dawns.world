@@ -51,13 +51,21 @@ public class FabricService {
 	}
 	
 	// 注册代理（托管）钱包地址
-	public String RegisterWallet(String accountId, String pass, String chain, String token){
-		String ret = ERR_NULLJNA;
-		if (api != null) {
-			ret =  api.registerWallet(accountId, pass, chain, token);
-		}
-		log.info(ret);
-		return 	ret;
+	public String RegisterWallet(String pass, String chain, String token){
+		return this.ChaincodeInvoke("orgchannel", "wallet",
+				new StringBuilder("{\"Func\":\"create\", \"Args\":[\"wallet\",\"")
+				.append(chain).append("\",\"")
+				.append(token).append("\",\"")
+				.append(pass).append("\"]}").toString());
+	}
+	
+	public String ImportWallet(String address, String chain, String token, String height) {
+		return this.ChaincodeInvoke("orgchannel", "wallet",
+				new StringBuilder("{\"Func\":\"register\", \"Args\":[\"wallet\",\"")
+				.append(address).append("\",\"")
+				.append(chain).append("\",\"")
+				.append(token).append("\",\"")
+				.append(height).append("\"]}").toString());
 	}
 	
 	public String RegisterToken(String chain, String token) {

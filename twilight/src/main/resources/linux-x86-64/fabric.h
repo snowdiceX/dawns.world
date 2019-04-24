@@ -69,8 +69,6 @@ extern char* chaincodeInvoke(char* p0, char* p1, char* p2);
 
 extern char* chaincodeQuery(char* p0, char* p1, char* p2);
 
-extern char* registerWallet(char* p0, char* p1, char* p2, char* p3);
-
 extern char* registerToken(char* p0, char* p1);
 
 #ifdef __cplusplus

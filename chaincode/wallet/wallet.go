@@ -105,12 +105,16 @@ func (w *WalletChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 
 	function, args := stub.GetFunctionAndParameters()
 	fmt.Println("WalletChaincode Invoke: ", function)
-	if function == "query" {
-		// queries an entity state
-		return w.query(stub, args)
-	}
-	if function == "register" {
-		return w.register(stub, args)
+	switch function {
+	case "query":
+		{
+			// queries an entity state
+			return w.query(stub, args)
+		}
+	case "register":
+		{
+			return w.register(stub, args)
+		}
 	}
 
 	return shim.Error(fmt.Sprintf("Unknown function call: %s", function))

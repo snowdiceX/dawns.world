@@ -29,7 +29,7 @@ type TxRegister struct {
 	From     string `json:"from,omitempty"`
 	To       string `json:"to,omitempty"`
 	Amount   string `json:"amount,omitempty"`
-	Gas      string `json:"gas,omitempty"`
+	GasUsed  string `json:"gasUsed,omitempty"`
 	GasPrice string `json:"gasPrice,omitempty"`
 	Txhash   string `json:"txhash,omitempty"`
 	Height   string `json:"height,omitempty"`
@@ -228,7 +228,7 @@ func sumTransaction(wallet *util.Wallet, tx *TxRegister) (*util.Wallet, *Chainco
 		y.SetString(tx.Amount[2:], 16)
 		balance = balance.Sub(balance, y)
 		g := new(big.Int)
-		g.SetString(tx.Gas[2:], 16)
+		g.SetString(tx.GasUsed[2:], 16)
 		gp := new(big.Int)
 		gp.SetString(tx.GasPrice[2:], 16)
 		g = g.Mul(g, gp)

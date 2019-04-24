@@ -46,8 +46,7 @@ public class WalletAddressRestController extends BaseRestController{
     	Integer userId = (Integer) request.getAttribute(Constants.CURRENT_USER_ID);
     	log.debug("call register...");
     	JsonResult<ResponseWallet> result = new JsonResult<>(HttpStatus.OK);
-    	String ret = fabric.RegisterWallet(String.valueOf(userId), req.getPass(),
-    			req.getNetwork(), req.getToken());
+    	String ret = fabric.RegisterWallet(req.getPass(), req.getNetwork(), req.getToken());
     	JSONObject obj = JSONObject.parseObject(ret);
     	result.setCode(obj.getInteger("code"));
     	result.setMessage(obj.getString("message"));
@@ -84,10 +83,8 @@ public class WalletAddressRestController extends BaseRestController{
     		HttpServletRequest request, @RequestBody RequestWallet req) {
     	Integer userId = (Integer) request.getAttribute(Constants.CURRENT_USER_ID);
     	log.debug("call register...");
-    	return fabric.ChaincodeInvoke("orgchannel", "wallet",
-    			"{\"Func\":\"register\", \"Args\":[\"wallet\", \""+userId+"\",\""
-    					+req.getAddress()+"\",\""+req.getNetwork()+"\",\""
-    					+req.getToken()+"\",\""+req.getHeight()+"\"]}");
+    	return fabric.ImportWallet(req.getAddress(),
+    			req.getNetwork(), req.getToken(), req.getHeight());
     }
     
     @ApiOperation(value="Query wallet")
