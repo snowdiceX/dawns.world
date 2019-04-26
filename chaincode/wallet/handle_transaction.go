@@ -60,7 +60,8 @@ func (w *WalletChaincode) registerBlock(
 			fmt.Sprintf("register failed: %v", err))
 	}
 	if !atomic.CompareAndSwapUint64(&w.InSequence, h-1, h) {
-		log.Errorf("register block update InSequence failed: %v", err)
+		log.Errorf("register block update InSequence failed: %d, %d",
+			w.InSequence, h)
 		return util.Error(http.StatusInternalServerError,
 			fmt.Sprintf("register block update InSequence failed:: %d; %d",
 				w.InSequence, h))
