@@ -9,6 +9,11 @@ func Info(msgs ...interface{}) {
 	fmt.Println(msgs...)
 }
 
+// Infof output log with info level
+func Infof(format string, msgs ...interface{}) {
+	fmt.Println(fmt.Sprintf(format, msgs...))
+}
+
 // Debug output log with debug level
 func Debug(msgs ...interface{}) {
 	fmt.Println(msgs...)

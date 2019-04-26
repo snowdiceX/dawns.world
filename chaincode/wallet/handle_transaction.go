@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/protos/ledger/queryresult"
@@ -51,6 +52,18 @@ func (w *WalletChaincode) registerBlock(
 		log.Errorf("parse error: %v\n    json: %s\n", err, args[0])
 		return util.Error(http.StatusBadRequest, fmt.Sprintf(
 			"register failed: %v", err))
+	}
+	h, err := strconv.ParseUint(block.Height[2:], 16, 64)
+	if err != nil {
+		log.Errorf("register failed: %v", err)
+		return util.Error(http.StatusInternalServerError,
+			fmt.Sprintf("register failed: %v", err))
+	}
+	if !atomic.CompareAndSwapUint64(&w.InSequence, h-1, h) {
+		log.Errorf("register block update InSequence failed: %v", err)
+		return util.Error(http.StatusInternalServerError,
+			fmt.Sprintf("register block update InSequence failed:: %d; %d",
+				w.InSequence, h))
 	}
 	var bytes []byte
 	var ccErr *ChaincodeError
@@ -103,7 +116,12 @@ func (w *WalletChaincode) registerBlock(
 			return util.Error(http.StatusInternalServerError, fmt.Sprintf(
 				"register failed: %v", err))
 		}
-		wallet, err = sumTransaction(wallet, tx)
+		wallet, ccErr = sumTransaction(wallet, tx)
+		if ccErr != nil {
+			log.Errorf("wallet sum error: %s: %v", walletKey, err)
+			return util.Error(ccErr.Code(),
+				fmt.Sprintf("register failed: %v", ccErr))
+		}
 		if bytes, err = json.Marshal(wallet); err != nil {
 			log.Errorf("json marshal error: %s: %v", walletKey, err)
 			return util.Error(http.StatusInternalServerError,
@@ -114,6 +132,7 @@ func (w *WalletChaincode) registerBlock(
 			return util.Error(http.StatusInternalServerError,
 				fmt.Sprintf("register failed: %v", err))
 		}
+		log.Infof("register block wallet update: %s: %s", walletKey, string(bytes))
 	}
 	ret := &util.ChainResult{Code: 200, Message: "OK"}
 	ret.Result = len(block.Txs)
@@ -203,7 +222,7 @@ func sumTransaction(wallet *util.Wallet, tx *TxRegister) (*util.Wallet, *Chainco
 				wallet.Chain, wallet.Token, wallet.Address,
 				tx.Chain, tx.Token, tx.To)}
 	}
-	if !strings.HasPrefix(tx.Amount, "0x") {
+	if !strings.HasPrefix(tx.Amount, "0x") && tx.Amount != "" {
 		return nil, &ChaincodeError{
 			code: http.StatusBadRequest,
 			errString: fmt.Sprintf(
@@ -212,11 +231,12 @@ func sumTransaction(wallet *util.Wallet, tx *TxRegister) (*util.Wallet, *Chainco
 	if strings.EqualFold(wallet.Address, tx.To) &&
 		!strings.EqualFold(wallet.Address, tx.From) {
 		balance := new(big.Int)
-		x := new(big.Int)
-		x.SetString(wallet.Balance[2:], 16)
-		y := new(big.Int)
-		y.SetString(tx.Amount[2:], 16)
-		balance = balance.Add(x, y)
+		balance.SetString(wallet.Balance[2:], 16)
+		if len(tx.Amount) > 0 {
+			y := new(big.Int)
+			y.SetString(tx.Amount[2:], 16)
+			balance = balance.Add(balance, y)
+		}
 		wallet.Balance = fmt.Sprintf("0x%s", balance.Text(16))
 		log.Info("wallet balance: ", wallet.Balance)
 		return wallet, nil
@@ -225,15 +245,19 @@ func sumTransaction(wallet *util.Wallet, tx *TxRegister) (*util.Wallet, *Chainco
 		strings.EqualFold(wallet.Address, tx.From) {
 		balance := new(big.Int)
 		balance.SetString(wallet.Balance[2:], 16)
-		y := new(big.Int)
-		y.SetString(tx.Amount[2:], 16)
-		balance = balance.Sub(balance, y)
-		g := new(big.Int)
-		g.SetString(tx.GasUsed[2:], 16)
-		gp := new(big.Int)
-		gp.SetString(tx.GasPrice[2:], 16)
-		g = g.Mul(g, gp)
-		balance = balance.Sub(balance, g)
+		if len(tx.Amount) > 0 {
+			y := new(big.Int)
+			y.SetString(tx.Amount[2:], 16)
+			balance = balance.Sub(balance, y)
+		}
+		if len(tx.GasUsed) > 0 && len(tx.GasPrice) > 0 {
+			g := new(big.Int)
+			g.SetString(tx.GasUsed[2:], 16)
+			gp := new(big.Int)
+			gp.SetString(tx.GasPrice[2:], 16)
+			g = g.Mul(g, gp)
+			balance = balance.Sub(balance, g)
+		}
 		wallet.Balance = fmt.Sprintf("0x%s", balance.Text(16))
 		log.Info("wallet balance: ", wallet.Balance)
 		return wallet, nil

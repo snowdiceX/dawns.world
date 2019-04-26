@@ -218,7 +218,7 @@ func (w *WalletChaincode) querySequence(
 	respJSON := fmt.Sprintf(
 		`{"chaincode": "wallet", "InSequence": %d, "OutSequence": %d}`,
 		in, out)
-	fmt.Printf("Query Response:%s\n", respJSON)
+	log.Infof("query sequence response: %s", respJSON)
 	return shim.Success([]byte(respJSON))
 }
 
