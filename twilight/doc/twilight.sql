@@ -51,17 +51,23 @@
  * -- 功能：
  *     游戏规则相关api
  *
+ * 修改root密码
+ * alter user root@localhost identified by 'Knob700newt531!';
  * 创建用户
- * insert into mysql.user(Host, User, Password, ssl_cipher, x509_issuer, x509_subject) values("%", "twilight", password("twilight"), "", "", "");
+ * insert into mysql.user(Host, User, Password, ssl_cipher, x509_issuer, x509_subject) values("%", "vagrant", password("vagrant"), "", "", "");
+ *　CREATE USER 'vagrant'@'localhost' IDENTIFIED BY 'vagrant';
  *
- * grant select,delete,update,insert on *.* to twilight@"%" identified by "twilight";
- * grant all privileges on twilight.* to twilight@localhost identified by 'twilight'
+ * grant select,delete,update,insert on *.* to *@"%" identified by "vagrant";
+ * grant all privileges on *.* to *@localhost identified by 'vagrant'
  * flush privileges;
  *
  * 创建数据库
  * create database twilight;
  *
+ * $ mysql -h *** -u*** -p < twilight.sql
  */
+
+use twilight;
 
 SET FOREIGN_KEY_CHECKS=0;
 

@@ -46,98 +46,162 @@ type BlockRegister struct {
 func (w *WalletChaincode) registerBlock(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	log.Info("register block: ", args[0])
-	block := &BlockRegister{}
-	err := json.Unmarshal([]byte(args[0]), block)
-	if err != nil {
-		log.Errorf("parse error: %v\n    json: %s\n", err, args[0])
-		return util.Error(http.StatusBadRequest, fmt.Sprintf(
-			"register failed: %v", err))
-	}
-	h, err := strconv.ParseUint(block.Height[2:], 16, 64)
-	if err != nil {
-		log.Errorf("register failed: %v", err)
-		return util.Error(http.StatusInternalServerError,
-			fmt.Sprintf("register failed: %v", err))
-	}
-	if !atomic.CompareAndSwapUint64(&w.InSequence, h-1, h) {
-		log.Errorf("register block update InSequence failed: %d, %d",
-			w.InSequence, h)
-		return util.Error(http.StatusInternalServerError,
-			fmt.Sprintf("register block update InSequence failed:: %d; %d",
-				w.InSequence, h))
-	}
-	var bytes []byte
 	var ccErr *ChaincodeError
+	var block *BlockRegister
+	if block, ccErr = checkBlock(args[0]); ccErr != nil {
+		return util.Error(ccErr.Code(), ccErr.Error())
+	}
+	if ccErr = w.checkInSequence(block); ccErr != nil {
+		return util.Error(ccErr.Code(), ccErr.Error())
+	}
+	var count int
+	var wallet *util.Wallet
 	for _, tx := range block.Txs {
 		tx.Height = block.Height
-		logKey := util.BuildLogTransactionKey(tx.Chain, tx.Token, tx.Height, tx.Txhash)
-		bytes, ccErr = checkState(stub, logKey, true)
-		if ccErr != nil {
-			if ccErr.Code() == http.StatusConflict {
-				continue
-			}
-			log.Errorf("register failed: %v", ccErr)
-			return util.Error(ccErr.Code(),
-				fmt.Sprintf("register failed: %v", ccErr))
+		if ccErr = checkTransactionLog(stub, tx); ccErr != nil {
+			continue
 		}
-		if bytes, err = json.Marshal(tx); err != nil {
-			log.Errorf("register failed: %v", err)
-			return util.Error(http.StatusInternalServerError,
-				fmt.Sprintf("register failed: %v", err))
-		}
-		if err = stub.PutState(logKey, bytes); err != nil {
-			log.Errorf("put state error: %s: %v", logKey, err)
-			return util.Error(http.StatusInternalServerError,
-				fmt.Sprintf("register failed: %v", err))
-		}
-		walletKey := util.BuildWalletKey(tx.Chain, tx.Token, tx.To)
-		bytes, ccErr = checkState(stub, walletKey, false)
-		if ccErr != nil {
-			log.Errorf("register failed: %v", ccErr)
-			return util.Error(ccErr.Code(),
-				fmt.Sprintf("register failed: %v", ccErr))
-		}
-		if bytes == nil {
-			walletKey = util.BuildWalletKey(tx.Chain, tx.Token, tx.From)
-			bytes, ccErr = checkState(stub, walletKey, false)
-			if ccErr != nil {
-				log.Errorf("register failed: %v", ccErr)
-				return util.Error(ccErr.Code(),
-					fmt.Sprintf("register failed: %v", ccErr))
-			}
-		}
-		if bytes == nil {
-			log.Errorf("wallet not found: %s", walletKey)
-			return util.Error(http.StatusInternalServerError,
-				fmt.Sprintf("wallet not found: %s", walletKey))
-		}
-		wallet := &util.Wallet{}
-		if err = json.Unmarshal(bytes, wallet); err != nil {
-			log.Errorf("parse state error: %v\n    json: %s", err, string(bytes))
-			return util.Error(http.StatusInternalServerError, fmt.Sprintf(
-				"register failed: %v", err))
+		if wallet, ccErr = checkWallet(stub, tx); ccErr != nil {
+			continue
 		}
 		wallet, ccErr = sumTransaction(wallet, tx)
 		if ccErr != nil {
-			log.Errorf("wallet sum error: %s: %v", walletKey, err)
+			log.Errorf("wallet sum error: %s: %v", wallet.Key, ccErr)
 			return util.Error(ccErr.Code(),
 				fmt.Sprintf("register failed: %v", ccErr))
 		}
-		if bytes, err = json.Marshal(wallet); err != nil {
-			log.Errorf("json marshal error: %s: %v", walletKey, err)
-			return util.Error(http.StatusInternalServerError,
-				fmt.Sprintf("register failed: %v", err))
+		if ccErr = saveWallet(stub, wallet); ccErr != nil {
+			continue
 		}
-		if err = stub.PutState(walletKey, bytes); err != nil {
-			log.Errorf("put state error: %s: %v", logKey, err)
-			return util.Error(http.StatusInternalServerError,
-				fmt.Sprintf("register failed: %v", err))
-		}
-		log.Infof("register block wallet update: %s: %s", walletKey, string(bytes))
+		count++
+	}
+	if ccErr != nil && count == 0 {
+		return util.Error(ccErr.Code(), ccErr.Error())
 	}
 	ret := &util.ChainResult{Code: 200, Message: "OK"}
-	ret.Result = len(block.Txs)
+	ret.Result = count
 	return util.Success(ret)
+}
+
+func checkBlock(blockJSON string) (*BlockRegister, *ChaincodeError) {
+	block := &BlockRegister{}
+	err := json.Unmarshal([]byte(blockJSON), block)
+	if err != nil {
+		errString := fmt.Sprintf("parse error: %v\n    json: %s",
+			err, blockJSON)
+		log.Error(errString)
+		return nil, &ChaincodeError{
+			code:      http.StatusBadRequest,
+			errString: errString}
+	}
+	return block, nil
+}
+
+func (w *WalletChaincode) checkInSequence(
+	block *BlockRegister) *ChaincodeError {
+	h, err := strconv.ParseUint(block.Height[2:], 16, 64)
+	if err != nil {
+		errString := fmt.Sprintf("parse block height failed: %s, %v",
+			block.Height, err)
+		log.Error(errString)
+		return &ChaincodeError{
+			code:      http.StatusInternalServerError,
+			errString: errString}
+	}
+	if !atomic.CompareAndSwapUint64(&w.InSequence, h-1, h) {
+		errString := fmt.Sprintf("update in-sequence failed: %d; %d",
+			w.InSequence, h)
+		log.Error(errString)
+		return &ChaincodeError{
+			code:      http.StatusInternalServerError,
+			errString: errString}
+	}
+	return nil
+}
+
+func checkTransactionLog(
+	stub shim.ChaincodeStubInterface, tx *TxRegister) *ChaincodeError {
+	logKey := util.BuildLogTransactionKey(tx.Chain, tx.Token, tx.Height, tx.Txhash)
+	bytes, ccErr := checkState(stub, logKey, true)
+	if ccErr != nil {
+		return ccErr
+	}
+	var err error
+	if bytes, err = json.Marshal(tx); err != nil {
+		errString := fmt.Sprintf("transaction marshal failed: %s %v",
+			logKey, err)
+		log.Error(errString)
+		return &ChaincodeError{
+			code:      http.StatusInternalServerError,
+			errString: errString}
+	}
+	if err = stub.PutState(logKey, bytes); err != nil {
+		errString := fmt.Sprintf("transaction log put state error: %s: %v",
+			logKey, err)
+		log.Error(errString)
+		return &ChaincodeError{
+			code:      http.StatusInternalServerError,
+			errString: errString}
+	}
+	return nil
+}
+
+func checkWallet(stub shim.ChaincodeStubInterface,
+	tx *TxRegister) (*util.Wallet, *ChaincodeError) {
+	walletKey := util.BuildWalletKey(tx.Chain, tx.Token, tx.To)
+	bytes, ccErr := checkState(stub, walletKey, false)
+	if ccErr != nil {
+		return nil, ccErr
+	}
+	if bytes == nil {
+		walletKey = util.BuildWalletKey(tx.Chain, tx.Token, tx.From)
+		bytes, ccErr = checkState(stub, walletKey, false)
+		if ccErr != nil {
+			return nil, ccErr
+		}
+	}
+	if bytes == nil {
+		errString := fmt.Sprintf("wallet not found: %s", walletKey)
+		log.Error(errString)
+		return nil, &ChaincodeError{
+			code:      http.StatusInternalServerError,
+			errString: errString}
+	}
+	var err error
+	wallet := &util.Wallet{Key: walletKey}
+	if err = json.Unmarshal(bytes, wallet); err != nil {
+		errString := fmt.Sprintf("wallet unmarshal error: %v\n    json: %s",
+			err, string(bytes))
+		log.Error(errString)
+		return nil, &ChaincodeError{
+			code:      http.StatusInternalServerError,
+			errString: errString}
+	}
+	return wallet, nil
+}
+
+func saveWallet(stub shim.ChaincodeStubInterface,
+	wallet *util.Wallet) *ChaincodeError {
+	var bytes []byte
+	var err error
+	if bytes, err = json.Marshal(wallet); err != nil {
+		errString := fmt.Sprintf("wallet marshal error: %s: %v",
+			wallet.Key, err)
+		log.Error(errString)
+		return &ChaincodeError{
+			code:      http.StatusInternalServerError,
+			errString: errString}
+	}
+	if err = stub.PutState(wallet.Key, bytes); err != nil {
+		errString := fmt.Sprintf("wallet put state error: %s: %v",
+			wallet.Key, err)
+		log.Error(errString)
+		return &ChaincodeError{
+			code:      http.StatusInternalServerError,
+			errString: errString}
+	}
+	log.Infof("wallet update: %s: %s", wallet.Key, string(bytes))
+	return nil
 }
 
 func (w *WalletChaincode) queryTransaction(

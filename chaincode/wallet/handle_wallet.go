@@ -31,7 +31,7 @@ func (w *WalletChaincode) registerWallet(
 		args[0], args[1], args[2], args[3]
 	log.Debug("chaincode[wallet] register", fmt.Sprint(args))
 	var err error
-	if _, err = w.checkInSequence(stub, heightHex); err != nil {
+	if _, err = w.initInSequence(stub, heightHex); err != nil {
 		log.Errorf("in sequence check error: %v", err)
 		return util.Error(http.StatusBadRequest, fmt.Sprintf(
 			"register failed: %v", err))
@@ -85,7 +85,7 @@ func (w *WalletChaincode) registerWallet(
 	return util.Success(ret)
 }
 
-func (w *WalletChaincode) checkInSequence(
+func (w *WalletChaincode) initInSequence(
 	stub shim.ChaincodeStubInterface, height string) (h uint64, err error) {
 	if strings.HasPrefix(height, "0x") {
 		height = height[2:]

@@ -2,6 +2,7 @@ package util
 
 // Wallet store in hyperledger fabric chain
 type Wallet struct {
+	Key     string `json:"key,omitempty"`
 	Version string `json:"version,omitempty"`
 	Chain   string `json:"chain,omitempty"`
 	Token   string `json:"token,omitempty"`
