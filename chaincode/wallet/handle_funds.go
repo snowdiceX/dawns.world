@@ -52,7 +52,7 @@ func (w *WalletChaincode) registerFunds(
 	_, ccErr := checkState(stub, key, true)
 	if ccErr != nil {
 		log.Errorf("check state error: %s %v", key, ccErr)
-		return util.Error(ccErr.Code(),
+		return util.Error(ccErr.Code,
 			fmt.Sprintf("check state error: %s %v", key, ccErr))
 	}
 	fundsHash := strings.ToUpper(util.Hash(key))
@@ -151,7 +151,7 @@ func (w *WalletChaincode) paginationFunds(
 
 // construct a page struct from iterator
 func constructFundsPage(iterator shim.StateQueryIteratorInterface,
-	metadata *pb.QueryResponseMetadata) (*paginationTxs, error) {
+	metadata *pb.QueryResponseMetadata) (*util.Pagination, error) {
 	var recs []interface{}
 	var rec *queryresult.KV
 	var err error
@@ -169,7 +169,7 @@ func constructFundsPage(iterator shim.StateQueryIteratorInterface,
 		rt.Key = rec.Key
 		recs = append(recs, rt)
 	}
-	page := &paginationTxs{}
+	page := &util.Pagination{}
 	page.Metadata = metadata
 	page.Records = recs
 	return page, nil

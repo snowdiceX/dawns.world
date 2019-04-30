@@ -3,10 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync/atomic"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -16,43 +14,16 @@ import (
 	"github.com/snowdiceX/dawns.world/chaincode/wallet/util"
 )
 
-type paginationTxs struct {
-	Records  []interface{}             `json:"records,omitempty"`
-	Metadata *pb.QueryResponseMetadata `json:"metadata,omitempty"`
-}
-
-// TxRegister registered Tx
-type TxRegister struct {
-	Key      string `json:"key,omitempty"`
-	Chain    string `json:"chain,omitempty"`
-	Token    string `json:"token,omitempty"`
-	Contract string `json:"contract,omitempty"`
-	From     string `json:"from,omitempty"`
-	To       string `json:"to,omitempty"`
-	Amount   string `json:"amount,omitempty"`
-	GasUsed  string `json:"gasUsed,omitempty"`
-	GasPrice string `json:"gasPrice,omitempty"`
-	Txhash   string `json:"txhash,omitempty"`
-	Height   string `json:"height,omitempty"`
-	Status   string `json:"status,omitempty"`
-}
-
-// BlockRegister registered block
-type BlockRegister struct {
-	Height string        `json:"height,omitempty"`
-	Txs    []*TxRegister `json:"transactions,omitempty"`
-}
-
 func (w *WalletChaincode) registerBlock(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	log.Info("register block: ", args[0])
-	var ccErr *ChaincodeError
-	var block *BlockRegister
+	var ccErr *util.ChaincodeError
+	var block *util.BlockRegister
 	if block, ccErr = checkBlock(args[0]); ccErr != nil {
-		return util.Error(ccErr.Code(), ccErr.Error())
+		return util.Error(ccErr.Code, ccErr.Error())
 	}
 	if ccErr = w.checkInSequence(block); ccErr != nil {
-		return util.Error(ccErr.Code(), ccErr.Error())
+		return util.Error(ccErr.Code, ccErr.Error())
 	}
 	var count int
 	var wallet *util.Wallet
@@ -64,10 +35,10 @@ func (w *WalletChaincode) registerBlock(
 		if wallet, ccErr = checkWallet(stub, tx); ccErr != nil {
 			continue
 		}
-		wallet, ccErr = sumTransaction(wallet, tx)
+		ccErr = wallet.Sum(tx)
 		if ccErr != nil {
 			log.Errorf("wallet sum error: %s: %v", wallet.Key, ccErr)
-			return util.Error(ccErr.Code(),
+			return util.Error(ccErr.Code,
 				fmt.Sprintf("register failed: %v", ccErr))
 		}
 		if ccErr = saveWallet(stub, wallet); ccErr != nil {
@@ -76,51 +47,52 @@ func (w *WalletChaincode) registerBlock(
 		count++
 	}
 	if ccErr != nil && count == 0 {
-		return util.Error(ccErr.Code(), ccErr.Error())
+		return util.Error(ccErr.Code, ccErr.Error())
 	}
 	ret := &util.ChainResult{Code: 200, Message: "OK"}
 	ret.Result = count
 	return util.Success(ret)
 }
 
-func checkBlock(blockJSON string) (*BlockRegister, *ChaincodeError) {
-	block := &BlockRegister{}
+func checkBlock(blockJSON string) (*util.BlockRegister, *util.ChaincodeError) {
+	block := &util.BlockRegister{}
 	err := json.Unmarshal([]byte(blockJSON), block)
 	if err != nil {
 		errString := fmt.Sprintf("parse error: %v\n    json: %s",
 			err, blockJSON)
 		log.Error(errString)
-		return nil, &ChaincodeError{
-			code:      http.StatusBadRequest,
-			errString: errString}
+		return nil, &util.ChaincodeError{
+			Code:      http.StatusBadRequest,
+			ErrString: errString}
 	}
 	return block, nil
 }
 
 func (w *WalletChaincode) checkInSequence(
-	block *BlockRegister) *ChaincodeError {
+	block *util.BlockRegister) *util.ChaincodeError {
 	h, err := strconv.ParseUint(block.Height[2:], 16, 64)
 	if err != nil {
 		errString := fmt.Sprintf("parse block height failed: %s, %v",
 			block.Height, err)
 		log.Error(errString)
-		return &ChaincodeError{
-			code:      http.StatusInternalServerError,
-			errString: errString}
+		return &util.ChaincodeError{
+			Code:      http.StatusInternalServerError,
+			ErrString: errString}
 	}
 	if !atomic.CompareAndSwapUint64(&w.InSequence, h-1, h) {
 		errString := fmt.Sprintf("update in-sequence failed: %d; %d",
 			w.InSequence, h)
 		log.Error(errString)
-		return &ChaincodeError{
-			code:      http.StatusInternalServerError,
-			errString: errString}
+		return &util.ChaincodeError{
+			Code:      http.StatusInternalServerError,
+			ErrString: errString}
 	}
 	return nil
 }
 
 func checkTransactionLog(
-	stub shim.ChaincodeStubInterface, tx *TxRegister) *ChaincodeError {
+	stub shim.ChaincodeStubInterface,
+	tx *util.TxRegister) *util.ChaincodeError {
 	logKey := util.BuildLogTransactionKey(tx.Chain, tx.Token, tx.Height, tx.Txhash)
 	bytes, ccErr := checkState(stub, logKey, true)
 	if ccErr != nil {
@@ -131,23 +103,23 @@ func checkTransactionLog(
 		errString := fmt.Sprintf("transaction marshal failed: %s %v",
 			logKey, err)
 		log.Error(errString)
-		return &ChaincodeError{
-			code:      http.StatusInternalServerError,
-			errString: errString}
+		return &util.ChaincodeError{
+			Code:      http.StatusInternalServerError,
+			ErrString: errString}
 	}
 	if err = stub.PutState(logKey, bytes); err != nil {
 		errString := fmt.Sprintf("transaction log put state error: %s: %v",
 			logKey, err)
 		log.Error(errString)
-		return &ChaincodeError{
-			code:      http.StatusInternalServerError,
-			errString: errString}
+		return &util.ChaincodeError{
+			Code:      http.StatusInternalServerError,
+			ErrString: errString}
 	}
 	return nil
 }
 
 func checkWallet(stub shim.ChaincodeStubInterface,
-	tx *TxRegister) (*util.Wallet, *ChaincodeError) {
+	tx *util.TxRegister) (*util.Wallet, *util.ChaincodeError) {
 	walletKey := util.BuildWalletKey(tx.Chain, tx.Token, tx.To)
 	bytes, ccErr := checkState(stub, walletKey, false)
 	if ccErr != nil {
@@ -163,9 +135,9 @@ func checkWallet(stub shim.ChaincodeStubInterface,
 	if bytes == nil {
 		errString := fmt.Sprintf("wallet not found: %s", walletKey)
 		log.Error(errString)
-		return nil, &ChaincodeError{
-			code:      http.StatusInternalServerError,
-			errString: errString}
+		return nil, &util.ChaincodeError{
+			Code:      http.StatusInternalServerError,
+			ErrString: errString}
 	}
 	var err error
 	wallet := &util.Wallet{Key: walletKey}
@@ -173,32 +145,32 @@ func checkWallet(stub shim.ChaincodeStubInterface,
 		errString := fmt.Sprintf("wallet unmarshal error: %v\n    json: %s",
 			err, string(bytes))
 		log.Error(errString)
-		return nil, &ChaincodeError{
-			code:      http.StatusInternalServerError,
-			errString: errString}
+		return nil, &util.ChaincodeError{
+			Code:      http.StatusInternalServerError,
+			ErrString: errString}
 	}
 	return wallet, nil
 }
 
 func saveWallet(stub shim.ChaincodeStubInterface,
-	wallet *util.Wallet) *ChaincodeError {
+	wallet *util.Wallet) *util.ChaincodeError {
 	var bytes []byte
 	var err error
 	if bytes, err = json.Marshal(wallet); err != nil {
 		errString := fmt.Sprintf("wallet marshal error: %s: %v",
 			wallet.Key, err)
 		log.Error(errString)
-		return &ChaincodeError{
-			code:      http.StatusInternalServerError,
-			errString: errString}
+		return &util.ChaincodeError{
+			Code:      http.StatusInternalServerError,
+			ErrString: errString}
 	}
 	if err = stub.PutState(wallet.Key, bytes); err != nil {
 		errString := fmt.Sprintf("wallet put state error: %s: %v",
 			wallet.Key, err)
 		log.Error(errString)
-		return &ChaincodeError{
-			code:      http.StatusInternalServerError,
-			errString: errString}
+		return &util.ChaincodeError{
+			Code:      http.StatusInternalServerError,
+			ErrString: errString}
 	}
 	log.Infof("wallet update: %s: %s", wallet.Key, string(bytes))
 	return nil
@@ -277,66 +249,9 @@ func (w *WalletChaincode) queryTransactionBySequence(
 	return shim.Success(txBytes)
 }
 
-func sumTransaction(wallet *util.Wallet, tx *TxRegister) (*util.Wallet, *ChaincodeError) {
-	if wallet == nil || tx == nil ||
-		!strings.EqualFold(wallet.Chain, tx.Chain) ||
-		!strings.EqualFold(wallet.Token, tx.Token) {
-		return nil, &ChaincodeError{
-			code: http.StatusInternalServerError,
-			errString: fmt.Sprintf("wrong wallet: %s, %s, %s/ %s, %s, %s",
-				wallet.Chain, wallet.Token, wallet.Address,
-				tx.Chain, tx.Token, tx.To)}
-	}
-	if !strings.HasPrefix(tx.Amount, "0x") && tx.Amount != "" {
-		return nil, &ChaincodeError{
-			code: http.StatusBadRequest,
-			errString: fmt.Sprintf(
-				`amount "%s" should be prefixed with 0x`, tx.Amount)}
-	}
-	if strings.EqualFold(wallet.Address, tx.To) &&
-		!strings.EqualFold(wallet.Address, tx.From) {
-		balance := new(big.Int)
-		balance.SetString(wallet.Balance[2:], 16)
-		if len(tx.Amount) > 0 {
-			y := new(big.Int)
-			y.SetString(tx.Amount[2:], 16)
-			balance = balance.Add(balance, y)
-		}
-		wallet.Balance = fmt.Sprintf("0x%s", balance.Text(16))
-		log.Info("wallet balance: ", wallet.Balance)
-		return wallet, nil
-	}
-	if !strings.EqualFold(wallet.Address, tx.To) &&
-		strings.EqualFold(wallet.Address, tx.From) {
-		balance := new(big.Int)
-		balance.SetString(wallet.Balance[2:], 16)
-		if len(tx.Amount) > 0 {
-			y := new(big.Int)
-			y.SetString(tx.Amount[2:], 16)
-			balance = balance.Sub(balance, y)
-		}
-		if len(tx.GasUsed) > 0 && len(tx.GasPrice) > 0 {
-			g := new(big.Int)
-			g.SetString(tx.GasUsed[2:], 16)
-			gp := new(big.Int)
-			gp.SetString(tx.GasPrice[2:], 16)
-			g = g.Mul(g, gp)
-			balance = balance.Sub(balance, g)
-		}
-		wallet.Balance = fmt.Sprintf("0x%s", balance.Text(16))
-		log.Info("wallet balance: ", wallet.Balance)
-		return wallet, nil
-	}
-	return nil, &ChaincodeError{
-		code: http.StatusBadRequest,
-		errString: fmt.Sprintf(
-			`incorrect address, wallet: %s from: %s, to: %s`,
-			wallet.Address, tx.From, tx.To)}
-}
-
 // construct a page struct from iterator
 func constructPage(iterator shim.StateQueryIteratorInterface,
-	metadata *pb.QueryResponseMetadata) (*paginationTxs, error) {
+	metadata *pb.QueryResponseMetadata) (*util.Pagination, error) {
 	var recs []interface{}
 	var rec *queryresult.KV
 	var err error
@@ -345,7 +260,7 @@ func constructPage(iterator shim.StateQueryIteratorInterface,
 		if err != nil {
 			return nil, err
 		}
-		tx := &TxRegister{}
+		tx := &util.TxRegister{}
 		err = json.Unmarshal(rec.Value, tx)
 		if err != nil {
 			return nil, err
@@ -353,7 +268,7 @@ func constructPage(iterator shim.StateQueryIteratorInterface,
 		tx.Key = rec.Key
 		recs = append(recs, tx)
 	}
-	page := &paginationTxs{}
+	page := &util.Pagination{}
 	page.Metadata = metadata
 	page.Records = recs
 	return page, nil

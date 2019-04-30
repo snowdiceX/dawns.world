@@ -27,22 +27,6 @@ const (
 	ZeroBalance string = "0x0"
 )
 
-// ChaincodeError error of chaincode
-type ChaincodeError struct {
-	code      int
-	errString string
-}
-
-// Code of error
-func (e ChaincodeError) Code() int {
-	return e.code
-}
-
-// Error string
-func (e ChaincodeError) Error() string {
-	return e.errString
-}
-
 // WalletChaincode is wallet Chaincode implementation
 type WalletChaincode struct {
 	Createtime  string
@@ -230,20 +214,20 @@ func main() {
 }
 
 func checkState(stub shim.ChaincodeStubInterface,
-	key string, returnExistError bool) ([]byte, *ChaincodeError) {
+	key string, returnExistError bool) ([]byte, *util.ChaincodeError) {
 	bytes, err := stub.GetState(key)
 	if err != nil {
 		log.Errorf("check state error: %s: %v", key, err)
-		ccErr := &ChaincodeError{
-			code:      http.StatusInternalServerError,
-			errString: fmt.Sprintf("check state error: %s: %v", key, err)}
+		ccErr := &util.ChaincodeError{
+			Code:      http.StatusInternalServerError,
+			ErrString: fmt.Sprintf("check state error: %s: %v", key, err)}
 		return nil, ccErr
 	}
 	if returnExistError && bytes != nil {
 		log.Warnf("check state error: %s: state exist ", key)
-		ccErr := &ChaincodeError{
-			code:      http.StatusConflict,
-			errString: fmt.Sprintf("state exist: %s", key)}
+		ccErr := &util.ChaincodeError{
+			Code:      http.StatusConflict,
+			ErrString: fmt.Sprintf("state exist: %s", key)}
 		return bytes, ccErr
 	}
 	return bytes, nil

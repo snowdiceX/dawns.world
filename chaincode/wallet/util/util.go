@@ -16,6 +16,17 @@ const (
 	errJSON = `{"code": 500, "message": "Failed"}`
 )
 
+// ChaincodeError error of chaincode
+type ChaincodeError struct {
+	Code      int
+	ErrString string
+}
+
+// Error string
+func (e ChaincodeError) Error() string {
+	return e.ErrString
+}
+
 // ChainResult response of chaincode
 type ChainResult struct {
 	Code      int         `json:"code,omitempty"`
@@ -57,4 +68,32 @@ func Hash(args ...interface{}) string {
 	hash := md5.New()
 	hash.Write([]byte(fmt.Sprint(args...)))
 	return hex.EncodeToString(hash.Sum(nil))
+}
+
+// Pagination of data
+type Pagination struct {
+	Records  []interface{}             `json:"records,omitempty"`
+	Metadata *pb.QueryResponseMetadata `json:"metadata,omitempty"`
+}
+
+// TxRegister registered Tx
+type TxRegister struct {
+	Key      string `json:"key,omitempty"`
+	Chain    string `json:"chain,omitempty"`
+	Token    string `json:"token,omitempty"`
+	Contract string `json:"contract,omitempty"`
+	From     string `json:"from,omitempty"`
+	To       string `json:"to,omitempty"`
+	Amount   string `json:"amount,omitempty"`
+	GasUsed  string `json:"gasUsed,omitempty"`
+	GasPrice string `json:"gasPrice,omitempty"`
+	Txhash   string `json:"txhash,omitempty"`
+	Height   string `json:"height,omitempty"`
+	Status   string `json:"status,omitempty"`
+}
+
+// BlockRegister registered block
+type BlockRegister struct {
+	Height string        `json:"height,omitempty"`
+	Txs    []*TxRegister `json:"transactions,omitempty"`
 }

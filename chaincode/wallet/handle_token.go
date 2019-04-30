@@ -33,7 +33,7 @@ func (w *WalletChaincode) registerToken(
 	_, ccErr := checkState(stub, key, true)
 	if ccErr != nil {
 		log.Errorf("check state error: %s %v", key, ccErr)
-		return util.Error(ccErr.Code(),
+		return util.Error(ccErr.Code,
 			fmt.Sprintf("check token state error: %s: %v", key, ccErr))
 	}
 	token := &registerToken{
@@ -99,7 +99,7 @@ func (w *WalletChaincode) paginationTokens(
 
 // construct a page struct from iterator
 func constructTokenPage(iterator shim.StateQueryIteratorInterface,
-	metadata *pb.QueryResponseMetadata) (*paginationTxs, error) {
+	metadata *pb.QueryResponseMetadata) (*util.Pagination, error) {
 	var recs []interface{}
 	var rec *queryresult.KV
 	var err error
@@ -116,7 +116,7 @@ func constructTokenPage(iterator shim.StateQueryIteratorInterface,
 		rt.Key = rec.Key
 		recs = append(recs, rt)
 	}
-	page := &paginationTxs{}
+	page := &util.Pagination{}
 	page.Metadata = metadata
 	page.Records = recs
 	return page, nil
