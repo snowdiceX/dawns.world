@@ -47,22 +47,12 @@ func (r *RecordFunds) Load(stub shim.ChaincodeStubInterface) *ChaincodeError {
 	if ccErr != nil {
 		return ccErr
 	}
-	rec := &RecordFunds{}
-	if err := json.Unmarshal(bytes, rec); err != nil {
+	if err := json.Unmarshal(bytes, r); err != nil {
 		errString := fmt.Sprintf("funds record load failed: %v", err)
 		log.Errorf(errString)
 		return &ChaincodeError{Code: http.StatusInternalServerError,
 			ErrString: errString}
 	}
-	if !strings.EqualFold(r.Hash, rec.Hash) ||
-		!strings.EqualFold(r.TokenKey, rec.TokenKey) ||
-		!strings.EqualFold(r.WalletAddress, rec.WalletAddress) {
-		errString := fmt.Sprintf("wrong data: %s", string(bytes))
-		log.Errorf(errString)
-		return &ChaincodeError{Code: http.StatusInternalServerError,
-			ErrString: errString}
-	}
-	r.Balance = rec.Balance
 	return nil
 }
 
