@@ -144,11 +144,28 @@ func (w *WalletChaincode) funds(
 
 func (w *WalletChaincode) fundsDeposit(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	rec := util.NewRecordFunds(args[0], args[1], args[2])
-	if err := rec.Load(stub); err != nil {
+	fundsTokenKey, walletAddress, amount := args[0], args[1], args[2]
+	rec := util.NewRecordFunds(fundsTokenKey, walletAddress)
+	var err *util.ChaincodeError
+	if err = rec.Load(stub); err != nil {
 		return util.Error(err.Code, err.Error())
 	}
-
+	wallet := util.NewWallet(
+		rec.Chain,
+		rec.Token,
+		rec.WalletAddress)
+	if err := wallet.Load(stub); err != nil {
+		return util.Error(err.Code, err.Error())
+	}
+	if err = wallet.Sub(amount); err != nil {
+		return util.Error(err.Code, err.Error())
+	}
+	if err = wallet.Save(stub); err != nil {
+		return util.Error(err.Code, err.Error())
+	}
+	ret := &util.ChainResult{Code: 200, Message: "OK"}
+	ret.Result = rec
+	return util.Success(ret)
 }
 
 func (w *WalletChaincode) fundsWithdraw(
@@ -157,7 +174,8 @@ func (w *WalletChaincode) fundsWithdraw(
 	if err := rec.Load(stub); err != nil {
 		return util.Error(err.Code, err.Error())
 	}
-
+	ret := &util.ChainResult{Code: 200, Message: "OK"}
+	return util.Success(ret)
 }
 
 func (w *WalletChaincode) paginationFunds(

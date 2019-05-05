@@ -14,26 +14,31 @@ import (
 type RecordFunds struct {
 	Key           string
 	Version       string `json:"version,omitempty"`
-	Hash          string `json:"hash,omitempty"`
-	TokenKey      string `json:"tokenKey,omitempty"`
+	FundsTokenKey string `json:"FundsTokenKey,omitempty"`
 	WalletAddress string `json:"walletAddress,omitempty"`
+	Chain         string `json:"chain,omitempty"`
+	Token         string `json:"token,omitempty"`
+	FundsHash     string `json:"FundsHash,omitempty"`
 	Balance       string `json:"balance,omitempty"`
 }
 
 // NewRecordFunds create a funds record
-func NewRecordFunds(hash, tokenKey, walletAddress string) *RecordFunds {
+func NewRecordFunds(fundsTokenKey, walletAddress string) *RecordFunds {
+	vs := strings.Split(fundsTokenKey, "-")
 	rec := &RecordFunds{
 		Version:       ChaincodeVersion,
-		Hash:          hash,
-		TokenKey:      tokenKey,
-		WalletAddress: walletAddress}
+		FundsTokenKey: fundsTokenKey,
+		WalletAddress: walletAddress,
+		Chain:         vs[0],
+		Token:         vs[1],
+		FundsHash:     vs[2]}
 	rec.Key = rec.buildKey()
 	return rec
 }
 
 // buildKey returns state key of this record
 func (r *RecordFunds) buildKey() string {
-	return BuildRecordFundsKey(r.Hash, r.TokenKey, r.WalletAddress)
+	return BuildRecordFundsKey(r.FundsTokenKey, r.WalletAddress)
 }
 
 // Load returns state data of this record

@@ -90,16 +90,21 @@ func (w *Wallet) Save(stub shim.ChaincodeStubInterface) *ChaincodeError {
 	return nil
 }
 
-// Sum tansactions to wallet
+// Sum transactions to wallet
 func (w *Wallet) Sum(tx *TxRegister) *ChaincodeError {
-	if tx == nil ||
-		!strings.EqualFold(w.Chain, tx.Chain) ||
-		!strings.EqualFold(w.Token, tx.Token) {
+	if tx == nil {
+		return &ChaincodeError{
+			Code:      http.StatusBadRequest,
+			ErrString: "Tx is nil"}
+	}
+	if !strings.EqualFold(w.Chain, tx.Chain) ||
+		!strings.EqualFold(w.Token, tx.Token) ||
+		!strings.EqualFold(w.Address, tx.WalletAddress) {
 		return &ChaincodeError{
 			Code: http.StatusInternalServerError,
 			ErrString: fmt.Sprintf("wrong wallet: %s, %s, %s/ %s, %s, %s",
 				w.Chain, w.Token, w.Address,
-				tx.Chain, tx.Token, tx.To)}
+				tx.Chain, tx.Token, tx.WalletAddress)}
 	}
 	if !strings.HasPrefix(tx.Amount, "0x") && tx.Amount != "" {
 		return &ChaincodeError{
@@ -107,43 +112,58 @@ func (w *Wallet) Sum(tx *TxRegister) *ChaincodeError {
 			ErrString: fmt.Sprintf(
 				`amount "%s" should be prefixed with 0x`, tx.Amount)}
 	}
-	if strings.EqualFold(w.Address, tx.To) &&
-		!strings.EqualFold(w.Address, tx.From) {
-		balance := new(big.Int)
-		balance.SetString(w.Balance[2:], 16)
-		if len(tx.Amount) > 0 {
-			y := new(big.Int)
-			y.SetString(tx.Amount[2:], 16)
-			balance = balance.Add(balance, y)
-		}
-		w.Balance = fmt.Sprintf("0x%s", balance.Text(16))
-		log.Info("wallet balance: ", w.Balance)
-		return nil
+	balance := new(big.Int)
+	balance.SetString(w.Balance[2:], 16)
+	if len(tx.Amount) > 0 {
+		y := new(big.Int)
+		y.SetString(tx.Amount[2:], 16)
+		balance.Add(balance, y)
 	}
-	if !strings.EqualFold(w.Address, tx.To) &&
-		strings.EqualFold(w.Address, tx.From) {
-		balance := new(big.Int)
-		balance.SetString(w.Balance[2:], 16)
-		if len(tx.Amount) > 0 {
-			y := new(big.Int)
-			y.SetString(tx.Amount[2:], 16)
-			balance = balance.Sub(balance, y)
-		}
-		if len(tx.GasUsed) > 0 && len(tx.GasPrice) > 0 {
-			g := new(big.Int)
-			g.SetString(tx.GasUsed[2:], 16)
-			gp := new(big.Int)
-			gp.SetString(tx.GasPrice[2:], 16)
-			g = g.Mul(g, gp)
-			balance = balance.Sub(balance, g)
-		}
-		w.Balance = fmt.Sprintf("0x%s", balance.Text(16))
-		log.Info("wallet balance: ", w.Balance)
-		return nil
+	if len(tx.GasUsed) > 0 && len(tx.GasPrice) > 0 {
+		g := new(big.Int)
+		g.SetString(tx.GasUsed[2:], 16)
+		gp := new(big.Int)
+		gp.SetString(tx.GasPrice[2:], 16)
+		g.Mul(g, gp)
+		balance.Sub(balance, g)
 	}
-	return &ChaincodeError{
-		Code: http.StatusBadRequest,
-		ErrString: fmt.Sprintf(
-			`incorrect address, wallet: %s from: %s, to: %s`,
-			w.Address, tx.From, tx.To)}
+	w.Balance = fmt.Sprintf("0x%s", balance.Text(16))
+	log.Info("wallet balance: ", w.Balance)
+	return nil
+}
+
+// Enough determines if wallet balance enough for the amount needed
+func (w *Wallet) Enough(amount string) *ChaincodeError {
+	v := new(big.Int)
+	v.SetString(amount[2:], 16)
+	if v.Sign() < 0 {
+		return &ChaincodeError{
+			Code: http.StatusBadRequest,
+			ErrString: fmt.Sprintf(
+				`incorrect amount value: %s, it should be positive`,
+				amount)}
+	}
+	balance := new(big.Int)
+	balance.SetString(w.Balance[2:], 16)
+	if balance.Cmp(v) <= 0 {
+		return &ChaincodeError{
+			Code: http.StatusBadRequest,
+			ErrString: fmt.Sprintf(
+				`balance not enough: %s`,
+				amount)}
+	}
+	return nil
+}
+
+func (w *Wallet) Sub(amount string) *ChaincodeError {
+	if err := w.Enough(amount); err != nil {
+		return err
+	}
+	balance := new(big.Int)
+	balance.SetString(w.Balance[2:], 16)
+	v := new(big.Int)
+	v.SetString(amount[2:], 16)
+	balance.Sub(balance, v)
+	w.Balance = fmt.Sprintf("0x%s", balance.Text(16))
+	log.Info("wallet balance: ", w.Balance)
 }
