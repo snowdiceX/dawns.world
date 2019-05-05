@@ -154,8 +154,8 @@ func sumAmount(balance *big.Int, amount string) *ChaincodeError {
 			return &ChaincodeError{
 				Code: http.StatusBadRequest,
 				ErrString: fmt.Sprintf(
-					`balance "%s" not enough: %s`,
-					w.Balance, amount)}
+					`balance not enough: %s`,
+					amount)}
 		}
 		balance.Add(balance, a)
 	}
@@ -163,24 +163,24 @@ func sumAmount(balance *big.Int, amount string) *ChaincodeError {
 }
 
 func sumGas(balance *big.Int, gasUsed, gasPrice string) *ChaincodeError {
-	if len(tx.GasUsed) > 0 && len(tx.GasPrice) > 0 {
+	if len(gasUsed) > 0 && len(gasPrice) > 0 {
 		g := new(big.Int)
-		g.SetString(tx.GasUsed[2:], 16)
+		g.SetString(gasUsed[2:], 16)
 		if g.Sign() <= 0 {
 			return &ChaincodeError{
 				Code: http.StatusBadRequest,
 				ErrString: fmt.Sprintf(
 					`gas used "%s" should be positive`,
-					tx.GasUsed)}
+					gasUsed)}
 		}
 		gp := new(big.Int)
-		gp.SetString(tx.GasPrice[2:], 16)
+		gp.SetString(gasPrice[2:], 16)
 		if gp.Sign() <= 0 {
 			return &ChaincodeError{
 				Code: http.StatusBadRequest,
 				ErrString: fmt.Sprintf(
 					`gas price "%s" should be positive`,
-					tx.GasPrice)}
+					gasPrice)}
 		}
 		g.Mul(g, gp)
 		balance.Sub(balance, g)
