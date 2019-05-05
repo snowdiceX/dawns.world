@@ -170,7 +170,7 @@ func (w *WalletChaincode) fundsDeposit(
 
 func (w *WalletChaincode) fundsWithdraw(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	rec := util.NewRecordFunds(args[0], args[1], args[2])
+	rec := util.NewRecordFunds(args[0], args[1])
 	if err := rec.Load(stub); err != nil {
 		return util.Error(err.Code, err.Error())
 	}
