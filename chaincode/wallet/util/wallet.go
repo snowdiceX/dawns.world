@@ -185,4 +185,5 @@ func sumGas(balance *big.Int, gasUsed, gasPrice string) *ChaincodeError {
 		g.Mul(g, gp)
 		balance.Sub(balance, g)
 	}
+	return nil
 }
