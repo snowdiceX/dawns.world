@@ -59,26 +59,17 @@ func (w *WalletChaincode) registerWallet(
 		return util.Error(http.StatusInternalServerError,
 			fmt.Sprintf("register failed: %v", err))
 	}
-	wallet := util.Wallet{
-		Version: "v1.0.0",
-		Chain:   chain,
-		Token:   token,
-		Balance: "0x0",
-		Height:  heightHex,
-		Address: address,
-		TxID:    string(stub.GetTxID()),
-		Agent:   "peer0.org0"}
-	bytes, err = json.Marshal(wallet)
-	if err != nil {
-		return util.Error(http.StatusInternalServerError,
-			fmt.Sprintf("register failed: %v", err))
-	}
-	walletKey := util.BuildWalletKey(chain, token, address)
-	log.Debug(`chaincode[wallet] register: %s, data: %s`+"\n",
-		walletKey, string(bytes))
-	if err = stub.PutState(walletKey, bytes); err != nil {
-		return util.Error(http.StatusInternalServerError,
-			fmt.Sprintf("register failed: %v", err))
+	wallet := util.NewWallet(
+		chain,
+		token,
+		address)
+	wallet.Version = util.ChaincodeVersion
+	wallet.Height = heightHex
+	wallet.TxID = string(stub.GetTxID())
+	wallet.Agent = "peer0.org0"
+	wallet.Balance = util.ZeroBalance
+	if ccErr := wallet.Save(stub); ccErr != nil {
+		return util.Error(ccErr.Code, ccErr.Error())
 	}
 	ret := &util.ChainResult{Code: 200, Message: "OK"}
 	ret.Result = walletSequence

@@ -16,17 +16,6 @@ import (
 	"github.com/snowdiceX/dawns.world/chaincode/wallet/util"
 )
 
-const (
-	version    = "Version"    // VERSION key of chaincode versio
-	createtime = "Createtime" // CREATETIME key of init time of chaincode
-
-	// ChaincodeVersion current version of chaincode
-	ChaincodeVersion string = "v0.0.1"
-
-	// ZeroBalance initial value
-	ZeroBalance string = "0x0"
-)
-
 // WalletChaincode is wallet Chaincode implementation
 type WalletChaincode struct {
 	Createtime  string
@@ -46,12 +35,12 @@ func (w *WalletChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	// var sequence int64
 
 	// Write the state to the ledger
-	err = stub.PutState(version, []byte(ChaincodeVersion))
+	err = stub.PutState(util.Version, []byte(util.ChaincodeVersion))
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 
-	err = stub.PutState(createtime, []byte(w.Createtime))
+	err = stub.PutState(util.Createtime, []byte(w.Createtime))
 	if err != nil {
 		return shim.Error(err.Error())
 	}
@@ -98,6 +87,10 @@ func (w *WalletChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	case "register":
 		{
 			return w.register(stub, args)
+		}
+	case "funds":
+		{
+			return w.funds(stub, args)
 		}
 	}
 
@@ -211,24 +204,4 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error starting WalletChaincode: %s", err)
 	}
-}
-
-func checkState(stub shim.ChaincodeStubInterface,
-	key string, returnExistError bool) ([]byte, *util.ChaincodeError) {
-	bytes, err := stub.GetState(key)
-	if err != nil {
-		log.Errorf("check state error: %s: %v", key, err)
-		ccErr := &util.ChaincodeError{
-			Code:      http.StatusInternalServerError,
-			ErrString: fmt.Sprintf("check state error: %s: %v", key, err)}
-		return nil, ccErr
-	}
-	if returnExistError && bytes != nil {
-		log.Warnf("check state error: %s: state exist ", key)
-		ccErr := &util.ChaincodeError{
-			Code:      http.StatusConflict,
-			ErrString: fmt.Sprintf("state exist: %s", key)}
-		return bytes, ccErr
-	}
-	return bytes, nil
 }

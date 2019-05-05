@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import dawns.twilight.common.base.BaseRestController;
 import dawns.twilight.common.chain.FabricService;
+import dawns.twilight.common.web.FundsRequest;
 import dawns.twilight.common.web.JsonResult;
 import dawns.twilight.dao.model.Quotation;
 import io.swagger.annotations.Api;
@@ -29,16 +30,28 @@ public class FundsRestController extends BaseRestController{
 
     @ApiOperation(value="Deposit",
     		notes="转入基金")
-    @RequestMapping(value = "/deposit/{chain}/{network}/{address}", method = RequestMethod.POST)
-    public JsonResult<Integer> add(HttpServletRequest request, @RequestBody Quotation quotation) {
-        return new JsonResult<>(null);
+    @RequestMapping(value = "/deposit/",
+    		method = RequestMethod.POST,
+    		produces="application/json;charset=UTF-8")
+    @ResponseBody
+    public String fundsDeposit(HttpServletRequest request,
+    		@RequestBody FundsRequest req) {
+    	return fabric.FundsDeposit(req.getFundsKey(),
+    			req.getWalletAddress(),
+    			req.getChain(), req.getToken(), req.getAmount());
     }
 
     @ApiOperation(value="Withdraw",
     		notes="转出基金")
-    @RequestMapping(value = "/withdraw/{chain}/{network}/{address}", method = RequestMethod.POST)
-    public JsonResult<Integer> delete(HttpServletRequest request, @PathVariable("id") Integer id) {
-        return new JsonResult<>(null);
+    @RequestMapping(value = "/withdraw/",
+    		method = RequestMethod.POST,
+    		produces="application/json;charset=UTF-8")
+    @ResponseBody
+    public String fundsWithdraw(HttpServletRequest request,
+    		@RequestBody FundsRequest req) {
+    	return fabric.FundsWithdraw(req.getFundsKey(),
+    			req.getWalletAddress(),
+    			req.getChain(), req.getToken(), req.getAmount());
     }
     
     /**

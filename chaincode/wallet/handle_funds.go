@@ -49,7 +49,7 @@ func (w *WalletChaincode) registerFunds(
 	chain = strings.ToUpper(chain)
 	token = strings.ToUpper(token)
 	key := util.BuildFundsKey(baseChain, baseToken, chain, token)
-	_, ccErr := checkState(stub, key, true)
+	_, ccErr := util.CheckState(stub, key, true)
 	if ccErr != nil {
 		log.Errorf("check state error: %s %v", key, ccErr)
 		return util.Error(ccErr.Code,
@@ -57,7 +57,7 @@ func (w *WalletChaincode) registerFunds(
 	}
 	fundsHash := strings.ToUpper(util.Hash(key))
 	fundsState := &fundsState{
-		Version:   "v1.0.0",
+		Version:   util.ChaincodeVersion,
 		Hash:      fundsHash,
 		BaseKey:   util.BuildFundsBaseKey(baseChain, baseToken, fundsHash),
 		AcceptKey: util.BuildFundsBaseKey(chain, token, fundsHash)}
@@ -74,7 +74,7 @@ func (w *WalletChaincode) registerFunds(
 		return util.Error(http.StatusInternalServerError, err.Error())
 	}
 	base := &TokenBalance{
-		Chain: baseChain, Token: baseToken, Balance: ZeroBalance}
+		Chain: baseChain, Token: baseToken, Balance: util.ZeroBalance}
 	if bytes, err = json.Marshal(base); err != nil {
 		if err != nil {
 			log.Errorf("register funds base json marshal error: %s %v",
@@ -88,7 +88,7 @@ func (w *WalletChaincode) registerFunds(
 		return util.Error(http.StatusInternalServerError, err.Error())
 	}
 	accept := &TokenBalance{
-		Chain: chain, Token: token, Balance: ZeroBalance}
+		Chain: chain, Token: token, Balance: util.ZeroBalance}
 	if bytes, err = json.Marshal(accept); err != nil {
 		if err != nil {
 			log.Errorf("register funds accept json marshal error: %s %v",
@@ -122,7 +122,42 @@ func (w *WalletChaincode) queryFunds(
 		}
 	}
 	return util.Error(http.StatusBadRequest, fmt.Sprintf(
-		"query funds failed: Query what? %s", what))
+		"query funds failed: query what? %s", what))
+}
+
+func (w *WalletChaincode) funds(
+	stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	what := args[0]
+	switch what {
+	case "deposit":
+		{
+			return w.fundsDeposit(stub, args[1:])
+		}
+	case "withdraw":
+		{
+			return w.fundsWithdraw(stub, args[1:])
+		}
+	}
+	return util.Error(http.StatusBadRequest, fmt.Sprintf(
+		"funds execute failed: execute what? %s", what))
+}
+
+func (w *WalletChaincode) fundsDeposit(
+	stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	rec := util.NewRecordFunds(args[0], args[1], args[2])
+	if err := rec.Load(stub); err != nil {
+		return util.Error(err.Code, err.Error())
+	}
+
+}
+
+func (w *WalletChaincode) fundsWithdraw(
+	stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	rec := util.NewRecordFunds(args[0], args[1], args[2])
+	if err := rec.Load(stub); err != nil {
+		return util.Error(err.Code, err.Error())
+	}
+
 }
 
 func (w *WalletChaincode) paginationFunds(

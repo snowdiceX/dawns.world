@@ -30,7 +30,7 @@ func (w *WalletChaincode) registerToken(
 	chain = strings.ToUpper(chain)
 	symbol = strings.ToUpper(symbol)
 	key := util.BuildTokenKey(chain, symbol)
-	_, ccErr := checkState(stub, key, true)
+	_, ccErr := util.CheckState(stub, key, true)
 	if ccErr != nil {
 		log.Errorf("check state error: %s %v", key, ccErr)
 		return util.Error(ccErr.Code,

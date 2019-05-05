@@ -92,6 +92,42 @@ public class FabricService {
 		return 	ret;
 	}
 	
+	public String FundsDeposit(String fundsKey,
+			String walletAddress, String chain,
+			String token, String amount) {
+		String ret = ERR_NULLJNA;
+		if (api != null) {
+			StringBuilder buf = new StringBuilder();
+			buf.append("{\"Func\":\"funds\", \"Args\":[\"deposit\", \"")
+			.append(fundsKey).append("\", \"")
+			.append(walletAddress).append("\", \"")
+			.append(chain).append("\", \"")
+			.append(token).append("\", \"")
+			.append(amount).append("\"]}");
+			ret =  api.chaincodeInvoke("orgchannel", "wallet", buf.toString());
+		}
+		log.info(ret);
+		return 	ret;
+	}
+	
+	public String FundsWithdraw(String fundsKey,
+			String walletAddress, String chain,
+			String token, String amount) {
+		String ret = ERR_NULLJNA;
+		if (api != null) {
+			StringBuilder buf = new StringBuilder();
+			buf.append("{\"Func\":\"funds\", \"Args\":[\"withdraw\", \"")
+			.append(fundsKey).append("\", \"")
+			.append(walletAddress).append("\", \"")
+			.append(chain).append("\", \"")
+			.append(token).append("\", \"")
+			.append(amount).append("\"]}");
+			ret =  api.chaincodeInvoke("orgchannel", "wallet", buf.toString());
+		}
+		log.info(ret);
+		return 	ret;
+	}
+	
 	public static void main(String[] args) {
 		String ret = null;
 		FabricService api = new FabricService();

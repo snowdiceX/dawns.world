@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
@@ -78,22 +79,44 @@ type Pagination struct {
 
 // TxRegister registered Tx
 type TxRegister struct {
-	Key      string `json:"key,omitempty"`
-	Chain    string `json:"chain,omitempty"`
-	Token    string `json:"token,omitempty"`
-	Contract string `json:"contract,omitempty"`
-	From     string `json:"from,omitempty"`
-	To       string `json:"to,omitempty"`
-	Amount   string `json:"amount,omitempty"`
-	GasUsed  string `json:"gasUsed,omitempty"`
-	GasPrice string `json:"gasPrice,omitempty"`
-	Txhash   string `json:"txhash,omitempty"`
-	Height   string `json:"height,omitempty"`
-	Status   string `json:"status,omitempty"`
+	Key           string `json:"key,omitempty"`
+	Chain         string `json:"chain,omitempty"`
+	Token         string `json:"token,omitempty"`
+	WalletAddress string `json:"walletAddress,omitempty"`
+	Contract      string `json:"contract,omitempty"`
+	From          string `json:"from,omitempty"`
+	To            string `json:"to,omitempty"`
+	Amount        string `json:"amount,omitempty"`
+	GasUsed       string `json:"gasUsed,omitempty"`
+	GasPrice      string `json:"gasPrice,omitempty"`
+	Txhash        string `json:"txhash,omitempty"`
+	Height        string `json:"height,omitempty"`
+	Status        string `json:"status,omitempty"`
 }
 
 // BlockRegister registered block
 type BlockRegister struct {
 	Height string        `json:"height,omitempty"`
 	Txs    []*TxRegister `json:"transactions,omitempty"`
+}
+
+// CheckState check world state
+func CheckState(stub shim.ChaincodeStubInterface,
+	key string, returnExistError bool) ([]byte, *ChaincodeError) {
+	bytes, err := stub.GetState(key)
+	if err != nil {
+		log.Errorf("check state error: %s: %v", key, err)
+		ccErr := &ChaincodeError{
+			Code:      http.StatusInternalServerError,
+			ErrString: fmt.Sprintf("check state error: %s: %v", key, err)}
+		return nil, ccErr
+	}
+	if returnExistError && bytes != nil {
+		log.Warnf("check state error: %s: state exist ", key)
+		ccErr := &ChaincodeError{
+			Code:      http.StatusConflict,
+			ErrString: fmt.Sprintf("state exist: %s", key)}
+		return bytes, ccErr
+	}
+	return bytes, nil
 }
