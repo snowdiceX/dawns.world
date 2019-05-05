@@ -92,13 +92,13 @@ func (w *Wallet) Save(stub shim.ChaincodeStubInterface) *ChaincodeError {
 
 // Sum transactions to wallet
 func (w *Wallet) Sum(tx *TxRegister) *ChaincodeError {
+	var err *ChaincodeError
 	if err = preCheck(w, tx); err != nil {
 		log.Error(err.Error())
 		return err
 	}
 	balance := new(big.Int)
 	balance.SetString(w.Balance[2:], 16)
-	var err *ChaincodeError
 	if err = sumAmount(balance, tx.Amount); err != nil {
 		log.Error(err.Error())
 		return err
