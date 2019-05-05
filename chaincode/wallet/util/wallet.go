@@ -166,4 +166,5 @@ func (w *Wallet) Sub(amount string) *ChaincodeError {
 	balance.Sub(balance, v)
 	w.Balance = fmt.Sprintf("0x%s", balance.Text(16))
 	log.Info("wallet balance: ", w.Balance)
+	return nil
 }
