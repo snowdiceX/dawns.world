@@ -1,5 +1,6 @@
 package util
 
+// TransactionLog trasaction of wallet
 type TransactionLog interface {
 	Chain() string
 	Token() string

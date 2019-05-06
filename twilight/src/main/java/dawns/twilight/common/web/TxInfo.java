@@ -3,14 +3,10 @@ package dawns.twilight.common.web;
 import lombok.Data;
 
 @Data
-public class RegisterTransaction {
-	private String chain;
-	private String token;
+public class TxInfo {
+
 	private String contract;
 	private String from;
 	private String to;
-	private String amount;
-	private String gas;
-	private String gasPrice;
 	private String txhash;
 }

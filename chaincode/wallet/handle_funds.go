@@ -151,10 +151,10 @@ func (w *WalletChaincode) fundsDeposit(
 		rec.Token,
 		rec.WalletAddress)
 	tx := &util.TxRegister{
-		ChainName:     rec.Chain,
-		TokenName:     rec.Token,
-		WalletAddress: rec.WalletAddress,
-		Amount:        amount,
+		ChainName: rec.Chain,
+		TokenName: rec.Token,
+		Addr:      rec.WalletAddress,
+		Amount:    amount,
 		Info: &util.TxInfo{
 			From: walletAddress,
 			To:   fundsTokenKey}}

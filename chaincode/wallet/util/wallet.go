@@ -93,13 +93,13 @@ func (w *Wallet) Save(stub shim.ChaincodeStubInterface) *ChaincodeError {
 // Sum sets wallet balance to the sum w.Balance + tx.Amount()
 func (w *Wallet) Sum(tx TransactionLog) *ChaincodeError {
 	var err *ChaincodeError
-	if err = preCheck(w, tx); err != nil {
+	if err = w.preCheck(tx); err != nil {
 		log.Error(err.Error())
 		return err
 	}
 	balance := new(big.Int)
 	balance.SetString(w.Balance[2:], 16)
-	if err = sumGas(balance, tx.GasUsedHex(), tx.GasPriceHex()); err != nil {
+	if err = sumGasFee(balance, tx.GasUsedHex(), tx.GasPriceHex()); err != nil {
 		log.Error(err.Error())
 		return err
 	}
@@ -115,13 +115,13 @@ func (w *Wallet) Sum(tx TransactionLog) *ChaincodeError {
 // Sub sets wallet balance to the difference w.Balance - tx.Amount()
 func (w *Wallet) Sub(tx TransactionLog) *ChaincodeError {
 	var err *ChaincodeError
-	if err = preCheck(w, tx); err != nil {
+	if err = w.preCheck(tx); err != nil {
 		log.Error(err.Error())
 		return err
 	}
 	balance := new(big.Int)
 	balance.SetString(w.Balance[2:], 16)
-	if err = sumGas(balance, tx.GasUsedHex(), tx.GasPriceHex()); err != nil {
+	if err = sumGasFee(balance, tx.GasUsedHex(), tx.GasPriceHex()); err != nil {
 		log.Error(err.Error())
 		return err
 	}
@@ -134,7 +134,7 @@ func (w *Wallet) Sub(tx TransactionLog) *ChaincodeError {
 	return nil
 }
 
-func preCheck(w *Wallet, tx TransactionLog) *ChaincodeError {
+func (w *Wallet) preCheck(tx TransactionLog) *ChaincodeError {
 	if tx == nil {
 		return &ChaincodeError{
 			Code:      http.StatusBadRequest,
@@ -173,84 +173,6 @@ func preCheck(w *Wallet, tx TransactionLog) *ChaincodeError {
 			ErrString: fmt.Sprintf(
 				`gas price "%s" should be prefixed with 0x`,
 				tx.GasPriceHex())}
-	}
-	return nil
-}
-
-// enough determines if wallet balance enough for the amount needed
-func enough(balance *big.Int, amount *big.Int) bool {
-	if balance.CmpAbs(amount) < 0 {
-		return false
-	}
-	return true
-}
-
-func sumAmount(balance *big.Int, amount string) *ChaincodeError {
-	if len(amount) > 0 {
-		a := new(big.Int)
-		a.SetString(amount[2:], 16)
-		if a.Sign() < 0 && enough(balance, a) {
-			return &ChaincodeError{
-				Code: http.StatusBadRequest,
-				ErrString: fmt.Sprintf(
-					`balance not enough for amount: %s`,
-					amount)}
-		}
-		balance.Add(balance, a)
-	}
-	return nil
-}
-
-func subAmount(balance *big.Int, amount string) *ChaincodeError {
-	a := new(big.Int)
-	a.SetString(amount[2:], 16)
-	if a.Sign() < 0 {
-		return &ChaincodeError{
-			Code: http.StatusBadRequest,
-			ErrString: fmt.Sprintf(
-				`amount "%s" should be positive`,
-				amount)}
-	}
-	if enough(balance, a) {
-		return &ChaincodeError{
-			Code: http.StatusBadRequest,
-			ErrString: fmt.Sprintf(
-				`balance not enough for amount: %s`,
-				amount)}
-	}
-	balance.Sub(balance, a)
-	return nil
-}
-
-func sumGas(balance *big.Int, gasUsed, gasPrice string) *ChaincodeError {
-	if len(gasUsed) > 0 && len(gasPrice) > 0 {
-		g := new(big.Int)
-		g.SetString(gasUsed[2:], 16)
-		if g.Sign() <= 0 {
-			return &ChaincodeError{
-				Code: http.StatusBadRequest,
-				ErrString: fmt.Sprintf(
-					`gas used "%s" should be positive`,
-					gasUsed)}
-		}
-		gp := new(big.Int)
-		gp.SetString(gasPrice[2:], 16)
-		if gp.Sign() <= 0 {
-			return &ChaincodeError{
-				Code: http.StatusBadRequest,
-				ErrString: fmt.Sprintf(
-					`gas price "%s" should be positive`,
-					gasPrice)}
-		}
-		g.Mul(g, gp)
-		if enough(balance, g) {
-			return &ChaincodeError{
-				Code: http.StatusBadRequest,
-				ErrString: fmt.Sprintf(
-					`balance not enough for fee: %s * %s`,
-					gasUsed, gasPrice)}
-		}
-		balance.Sub(balance, g)
 	}
 	return nil
 }

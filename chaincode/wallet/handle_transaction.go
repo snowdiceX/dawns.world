@@ -28,6 +28,11 @@ func (w *WalletChaincode) registerBlock(
 	var count int
 	var wallet *util.Wallet
 	for _, tx := range block.Txs {
+		if tx.Info == nil {
+			errString := "info of transaction cannot be nil"
+			log.Errorf(errString)
+			return util.Error(http.StatusBadRequest, errString)
+		}
 		tx.Info.Height = block.Height
 		if ccErr = checkTransactionLog(stub, tx); ccErr != nil {
 			continue

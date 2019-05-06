@@ -15,11 +15,11 @@ import (
 type RecordFunds struct {
 	Key           string
 	Version       string `json:"version,omitempty"`
-	FundsTokenKey string `json:"FundsTokenKey,omitempty"`
-	WalletAddress string `json:"walletAddress,omitempty"`
+	FundsTokenKey string `json:"fundsTokenKey,omitempty"`
+	WalletAddress string `json:"address,omitempty"`
 	Chain         string `json:"chain,omitempty"`
 	Token         string `json:"token,omitempty"`
-	FundsHash     string `json:"FundsHash,omitempty"`
+	FundsHash     string `json:"fundsHash,omitempty"`
 	Balance       string `json:"balance,omitempty"`
 }
 
@@ -30,16 +30,16 @@ func NewRecordFunds(fundsTokenKey, walletAddress string) *RecordFunds {
 		Version:       ChaincodeVersion,
 		FundsTokenKey: fundsTokenKey,
 		WalletAddress: walletAddress,
-		Chain:         vs[0],
-		Token:         vs[1],
-		FundsHash:     vs[2]}
+		Chain:         vs[1],
+		Token:         vs[2],
+		FundsHash:     vs[3]}
 	rec.Key = rec.buildKey()
 	return rec
 }
 
 // buildKey returns state key of this record
 func (r *RecordFunds) buildKey() string {
-	return BuildRecordFundsKey(r.FundsTokenKey, r.WalletAddress)
+	return BuildRecordFundsKey(r.Chain, r.Token, r.FundsHash, r.WalletAddress)
 }
 
 // Load returns state data of this record
@@ -103,5 +103,19 @@ func addAmount(balance *big.Int, amount string) *ChaincodeError {
 				amount)}
 	}
 	balance.Add(balance, a)
+	return nil
+}
+
+// Sub sets funds record balance to the difference r.Balance - tx.Amount()
+func (r *RecordFunds) Sub(tx TransactionLog) *ChaincodeError {
+	var err *ChaincodeError
+	balance := new(big.Int)
+	balance.SetString(r.Balance[2:], 16)
+	if err = subAmount(balance, tx.AmountHex()); err != nil {
+		log.Error(err.Error())
+		return nil
+	}
+	r.Balance = fmt.Sprintf("0x%s", balance.Text(16))
+	log.Info("funds record balance: ", r.Balance)
 	return nil
 }

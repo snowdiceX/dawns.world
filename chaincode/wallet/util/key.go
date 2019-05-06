@@ -13,15 +13,15 @@ const (
 	// TagFunds key prefix of funds
 	TagFunds = "Funds"
 	// TagFundsBase key prefix of funds base token
-	TagFundsBase = "Base-Funds"
+	TagFundsBase = "BaseFunds"
 	// TagFundsAccept key prefix of funds accept token
-	TagFundsAccept = "Accept-Funds"
+	TagFundsAccept = "AcceptFunds"
 	// TagToken key prefix of token
 	TagToken = "Token"
 	// TagLogRegisteredTx key prefix of registered transaction log
-	TagLogRegisteredTx = "Log-RegisteredTx"
+	TagLogRegisteredTx = "LogRegisteredTx"
 	// TagRecordFunds key prefix of funds deposit and withdraw record
-	TagRecordFunds = "Record-Funds"
+	TagRecordFunds = "RecordFunds"
 )
 
 // BuildAccountKey key of user account
@@ -108,7 +108,7 @@ func BuildLogTransactionStartKey(network, token string, args ...string) string {
 }
 
 // BuildRecordFundsKey key of funds deposit and withdraw record
-func BuildRecordFundsKey(tokenKey, walletAddress string) string {
-	return fmt.Sprintf("%s-%s-%s",
-		TagRecordFunds, tokenKey, walletAddress)
+func BuildRecordFundsKey(chain, token, fundsHash, walletAddress string) string {
+	return fmt.Sprintf("%s-%s-%s-%s-%s",
+		TagRecordFunds, chain, token, fundsHash, walletAddress)
 }

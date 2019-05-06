@@ -17,7 +17,6 @@ public class FabricService {
 
 		public String chaincodeInvoke(String channelID, String chaincodeID, String args);
 		public String chaincodeQuery(String channelID, String chaincodeID, String args);
-		public String registerWallet(String accountID, String key, String chain, String token);
 		public String registerToken(String chain, String token);
 	}
 	

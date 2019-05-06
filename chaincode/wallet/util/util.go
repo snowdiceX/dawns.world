@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -77,6 +78,7 @@ type Pagination struct {
 	Metadata *pb.QueryResponseMetadata `json:"metadata,omitempty"`
 }
 
+// TxInfo info of Tx
 type TxInfo struct {
 	Contract string `json:"contract,omitempty"`
 	From     string `json:"from,omitempty"`
@@ -88,36 +90,42 @@ type TxInfo struct {
 
 // TxRegister registered Tx
 type TxRegister struct {
-	Key           string  `json:"key,omitempty"`
-	ChainName     string  `json:"chain,omitempty"`
-	TokenName     string  `json:"token,omitempty"`
-	WalletAddress string  `json:"walletAddress,omitempty"`
-	Amount        string  `json:"amount,omitempty"`
-	GasUsed       string  `json:"gasUsed,omitempty"`
-	GasPrice      string  `json:"gasPrice,omitempty"`
-	Info          *TxInfo `json:"info,omitempty"`
+	Key       string  `json:"key,omitempty"`
+	ChainName string  `json:"chain,omitempty"`
+	TokenName string  `json:"token,omitempty"`
+	Addr      string  `json:"address,omitempty"`
+	Amount    string  `json:"amount,omitempty"`
+	GasUsed   string  `json:"gasUsed,omitempty"`
+	GasPrice  string  `json:"gasPrice,omitempty"`
+	Info      *TxInfo `json:"info,omitempty"`
 }
 
+// Chain returns chain name
 func (t *TxRegister) Chain() string {
 	return t.ChainName
 }
 
+// Token returns token name
 func (t *TxRegister) Token() string {
 	return t.TokenName
 }
 
+// Address returns the address of the modified change
 func (t *TxRegister) Address() string {
-	return t.WalletAddress
+	return t.Addr
 }
 
+// AmountHex returns the amount of the transaction in hex format
 func (t *TxRegister) AmountHex() string {
 	return t.Amount
 }
 
+// GasUsedHex returns the gas used of the transaction in hex format
 func (t *TxRegister) GasUsedHex() string {
 	return t.GasUsed
 }
 
+// GasPriceHex returns the gas price of the transaction in hex format
 func (t *TxRegister) GasPriceHex() string {
 	return t.GasPrice
 }
@@ -147,4 +155,82 @@ func CheckState(stub shim.ChaincodeStubInterface,
 		return bytes, ccErr
 	}
 	return bytes, nil
+}
+
+// enough determines if wallet balance enough for the amount needed
+func enough(balance *big.Int, amount *big.Int) bool {
+	if balance.CmpAbs(amount) < 0 {
+		return false
+	}
+	return true
+}
+
+func sumAmount(balance *big.Int, amount string) *ChaincodeError {
+	if len(amount) > 0 {
+		a := new(big.Int)
+		a.SetString(amount[2:], 16)
+		if a.Sign() < 0 && enough(balance, a) {
+			return &ChaincodeError{
+				Code: http.StatusBadRequest,
+				ErrString: fmt.Sprintf(
+					`balance not enough for amount: %s`,
+					amount)}
+		}
+		balance.Add(balance, a)
+	}
+	return nil
+}
+
+func subAmount(balance *big.Int, amount string) *ChaincodeError {
+	a := new(big.Int)
+	a.SetString(amount[2:], 16)
+	if a.Sign() < 0 {
+		return &ChaincodeError{
+			Code: http.StatusBadRequest,
+			ErrString: fmt.Sprintf(
+				`amount "%s" should be positive`,
+				amount)}
+	}
+	if enough(balance, a) {
+		return &ChaincodeError{
+			Code: http.StatusBadRequest,
+			ErrString: fmt.Sprintf(
+				`balance not enough for amount: %s`,
+				amount)}
+	}
+	balance.Sub(balance, a)
+	return nil
+}
+
+func sumGasFee(balance *big.Int, gasUsed, gasPrice string) *ChaincodeError {
+	if len(gasUsed) > 0 && len(gasPrice) > 0 {
+		g := new(big.Int)
+		g.SetString(gasUsed[2:], 16)
+		if g.Sign() <= 0 {
+			return &ChaincodeError{
+				Code: http.StatusBadRequest,
+				ErrString: fmt.Sprintf(
+					`gas used "%s" should be positive`,
+					gasUsed)}
+		}
+		gp := new(big.Int)
+		gp.SetString(gasPrice[2:], 16)
+		if gp.Sign() <= 0 {
+			return &ChaincodeError{
+				Code: http.StatusBadRequest,
+				ErrString: fmt.Sprintf(
+					`gas price "%s" should be positive`,
+					gasPrice)}
+		}
+		g.Mul(g, gp)
+		if enough(balance, g) {
+			return &ChaincodeError{
+				Code: http.StatusBadRequest,
+				ErrString: fmt.Sprintf(
+					`balance not enough for fee: %s * %s`,
+					gasUsed, gasPrice)}
+		}
+		balance.Sub(balance, g)
+	}
+	return nil
 }
