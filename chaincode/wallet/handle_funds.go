@@ -146,21 +146,35 @@ func (w *WalletChaincode) fundsDeposit(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	fundsTokenKey, walletAddress, amount := args[0], args[1], args[2]
 	rec := util.NewRecordFunds(fundsTokenKey, walletAddress)
-	var err *util.ChaincodeError
-	if err = rec.Load(stub); err != nil {
-		return util.Error(err.Code, err.Error())
-	}
 	wallet := util.NewWallet(
 		rec.Chain,
 		rec.Token,
 		rec.WalletAddress)
+	tx := &util.TxRegister{
+		ChainName:     rec.Chain,
+		TokenName:     rec.Token,
+		WalletAddress: rec.WalletAddress,
+		Amount:        amount,
+		Info: &util.TxInfo{
+			From: walletAddress,
+			To:   fundsTokenKey}}
+	var err *util.ChaincodeError
 	if err := wallet.Load(stub); err != nil {
 		return util.Error(err.Code, err.Error())
 	}
-	if err = wallet.Sub(amount); err != nil {
+	if err = rec.Load(stub); err != nil {
+		return util.Error(err.Code, err.Error())
+	}
+	if err = wallet.Sub(tx); err != nil {
+		return util.Error(err.Code, err.Error())
+	}
+	if err = rec.Add(tx); err != nil {
 		return util.Error(err.Code, err.Error())
 	}
 	if err = wallet.Save(stub); err != nil {
+		return util.Error(err.Code, err.Error())
+	}
+	if err = rec.Save(stub); err != nil {
 		return util.Error(err.Code, err.Error())
 	}
 	ret := &util.ChainResult{Code: 200, Message: "OK"}

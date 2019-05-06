@@ -77,21 +77,49 @@ type Pagination struct {
 	Metadata *pb.QueryResponseMetadata `json:"metadata,omitempty"`
 }
 
+type TxInfo struct {
+	Contract string `json:"contract,omitempty"`
+	From     string `json:"from,omitempty"`
+	To       string `json:"to,omitempty"`
+	TxHash   string `json:"txHash,omitempty"`
+	Height   string `json:"height,omitempty"`
+	Status   string `json:"status,omitempty"`
+}
+
 // TxRegister registered Tx
 type TxRegister struct {
-	Key           string `json:"key,omitempty"`
-	Chain         string `json:"chain,omitempty"`
-	Token         string `json:"token,omitempty"`
-	WalletAddress string `json:"walletAddress,omitempty"`
-	Contract      string `json:"contract,omitempty"`
-	From          string `json:"from,omitempty"`
-	To            string `json:"to,omitempty"`
-	Amount        string `json:"amount,omitempty"`
-	GasUsed       string `json:"gasUsed,omitempty"`
-	GasPrice      string `json:"gasPrice,omitempty"`
-	Txhash        string `json:"txhash,omitempty"`
-	Height        string `json:"height,omitempty"`
-	Status        string `json:"status,omitempty"`
+	Key           string  `json:"key,omitempty"`
+	ChainName     string  `json:"chain,omitempty"`
+	TokenName     string  `json:"token,omitempty"`
+	WalletAddress string  `json:"walletAddress,omitempty"`
+	Amount        string  `json:"amount,omitempty"`
+	GasUsed       string  `json:"gasUsed,omitempty"`
+	GasPrice      string  `json:"gasPrice,omitempty"`
+	Info          *TxInfo `json:"info,omitempty"`
+}
+
+func (t *TxRegister) Chain() string {
+	return t.ChainName
+}
+
+func (t *TxRegister) Token() string {
+	return t.TokenName
+}
+
+func (t *TxRegister) Address() string {
+	return t.WalletAddress
+}
+
+func (t *TxRegister) AmountHex() string {
+	return t.Amount
+}
+
+func (t *TxRegister) GasUsedHex() string {
+	return t.GasUsed
+}
+
+func (t *TxRegister) GasPriceHex() string {
+	return t.GasPrice
 }
 
 // BlockRegister registered block

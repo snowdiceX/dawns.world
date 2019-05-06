@@ -90,8 +90,8 @@ func (w *Wallet) Save(stub shim.ChaincodeStubInterface) *ChaincodeError {
 	return nil
 }
 
-// Sum transactions to wallet
-func (w *Wallet) Sum(tx *TxRegister) *ChaincodeError {
+// Sum sets wallet balance to the sum w.Balance + tx.Amount()
+func (w *Wallet) Sum(tx TransactionLog) *ChaincodeError {
 	var err *ChaincodeError
 	if err = preCheck(w, tx); err != nil {
 		log.Error(err.Error())
@@ -99,11 +99,11 @@ func (w *Wallet) Sum(tx *TxRegister) *ChaincodeError {
 	}
 	balance := new(big.Int)
 	balance.SetString(w.Balance[2:], 16)
-	if err = sumAmount(balance, tx.Amount); err != nil {
+	if err = sumGas(balance, tx.GasUsedHex(), tx.GasPriceHex()); err != nil {
 		log.Error(err.Error())
 		return err
 	}
-	if err = sumGas(balance, tx.GasUsed, tx.GasPrice); err != nil {
+	if err = sumAmount(balance, tx.AmountHex()); err != nil {
 		log.Error(err.Error())
 		return err
 	}
@@ -112,28 +112,67 @@ func (w *Wallet) Sum(tx *TxRegister) *ChaincodeError {
 	return nil
 }
 
-func preCheck(w *Wallet, tx *TxRegister) *ChaincodeError {
+// Sub sets wallet balance to the difference w.Balance - tx.Amount()
+func (w *Wallet) Sub(tx TransactionLog) *ChaincodeError {
+	var err *ChaincodeError
+	if err = preCheck(w, tx); err != nil {
+		log.Error(err.Error())
+		return err
+	}
+	balance := new(big.Int)
+	balance.SetString(w.Balance[2:], 16)
+	if err = sumGas(balance, tx.GasUsedHex(), tx.GasPriceHex()); err != nil {
+		log.Error(err.Error())
+		return err
+	}
+	if err = subAmount(balance, tx.AmountHex()); err != nil {
+		log.Error(err.Error())
+		return nil
+	}
+	w.Balance = fmt.Sprintf("0x%s", balance.Text(16))
+	log.Info("wallet balance: ", w.Balance)
+	return nil
+}
+
+func preCheck(w *Wallet, tx TransactionLog) *ChaincodeError {
 	if tx == nil {
 		return &ChaincodeError{
 			Code:      http.StatusBadRequest,
 			ErrString: "Tx is nil"}
 	}
-	if !strings.EqualFold(w.Chain, tx.Chain) ||
-		!strings.EqualFold(w.Token, tx.Token) ||
-		!strings.EqualFold(w.Address, tx.WalletAddress) {
+	if !strings.EqualFold(w.Chain, tx.Chain()) ||
+		!strings.EqualFold(w.Token, tx.Token()) ||
+		!strings.EqualFold(w.Address, tx.Address()) {
 		return &ChaincodeError{
 			Code: http.StatusInternalServerError,
 			ErrString: fmt.Sprintf(
 				"wrong wallet: %s, %s, %s/ %s, %s, %s",
 				w.Chain, w.Token, w.Address,
-				tx.Chain, tx.Token, tx.WalletAddress)}
+				tx.Chain(), tx.Token(), tx.Address())}
 	}
-	if !strings.HasPrefix(tx.Amount, "0x") && tx.Amount != "" {
+	if len(tx.AmountHex()) > 0 &&
+		!strings.HasPrefix(tx.AmountHex(), "0x") {
 		return &ChaincodeError{
 			Code: http.StatusBadRequest,
 			ErrString: fmt.Sprintf(
 				`amount "%s" should be prefixed with 0x`,
-				tx.Amount)}
+				tx.AmountHex())}
+	}
+	if len(tx.GasUsedHex()) > 0 &&
+		!strings.HasPrefix(tx.GasUsedHex(), "0x") {
+		return &ChaincodeError{
+			Code: http.StatusBadRequest,
+			ErrString: fmt.Sprintf(
+				`gas used "%s" should be prefixed with 0x`,
+				tx.GasUsedHex())}
+	}
+	if len(tx.GasPriceHex()) > 0 &&
+		!strings.HasPrefix(tx.GasPriceHex(), "0x") {
+		return &ChaincodeError{
+			Code: http.StatusBadRequest,
+			ErrString: fmt.Sprintf(
+				`gas price "%s" should be prefixed with 0x`,
+				tx.GasPriceHex())}
 	}
 	return nil
 }
@@ -154,11 +193,32 @@ func sumAmount(balance *big.Int, amount string) *ChaincodeError {
 			return &ChaincodeError{
 				Code: http.StatusBadRequest,
 				ErrString: fmt.Sprintf(
-					`balance not enough: %s`,
+					`balance not enough for amount: %s`,
 					amount)}
 		}
 		balance.Add(balance, a)
 	}
+	return nil
+}
+
+func subAmount(balance *big.Int, amount string) *ChaincodeError {
+	a := new(big.Int)
+	a.SetString(amount[2:], 16)
+	if a.Sign() < 0 {
+		return &ChaincodeError{
+			Code: http.StatusBadRequest,
+			ErrString: fmt.Sprintf(
+				`amount "%s" should be positive`,
+				amount)}
+	}
+	if enough(balance, a) {
+		return &ChaincodeError{
+			Code: http.StatusBadRequest,
+			ErrString: fmt.Sprintf(
+				`balance not enough for amount: %s`,
+				amount)}
+	}
+	balance.Sub(balance, a)
 	return nil
 }
 
@@ -183,6 +243,13 @@ func sumGas(balance *big.Int, gasUsed, gasPrice string) *ChaincodeError {
 					gasPrice)}
 		}
 		g.Mul(g, gp)
+		if enough(balance, g) {
+			return &ChaincodeError{
+				Code: http.StatusBadRequest,
+				ErrString: fmt.Sprintf(
+					`balance not enough for fee: %s * %s`,
+					gasUsed, gasPrice)}
+		}
 		balance.Sub(balance, g)
 	}
 	return nil

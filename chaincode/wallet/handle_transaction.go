@@ -28,14 +28,14 @@ func (w *WalletChaincode) registerBlock(
 	var count int
 	var wallet *util.Wallet
 	for _, tx := range block.Txs {
-		tx.Height = block.Height
+		tx.Info.Height = block.Height
 		if ccErr = checkTransactionLog(stub, tx); ccErr != nil {
 			continue
 		}
 		wallet = util.NewWallet(
-			tx.Chain,
-			tx.Token,
-			tx.WalletAddress)
+			tx.Chain(),
+			tx.Token(),
+			tx.Address())
 		if ccErr = wallet.Load(stub); ccErr != nil {
 			log.Errorf(ccErr.Error())
 			return util.Error(ccErr.Code, ccErr.Error())
@@ -97,7 +97,8 @@ func (w *WalletChaincode) checkInSequence(
 func checkTransactionLog(
 	stub shim.ChaincodeStubInterface,
 	tx *util.TxRegister) *util.ChaincodeError {
-	logKey := util.BuildLogTransactionKey(tx.Chain, tx.Token, tx.Height, tx.Txhash)
+	logKey := util.BuildLogTransactionKey(tx.Chain(), tx.Token(),
+		tx.Info.Height, tx.Info.TxHash)
 	bytes, ccErr := util.CheckState(stub, logKey, true)
 	if ccErr != nil {
 		return ccErr

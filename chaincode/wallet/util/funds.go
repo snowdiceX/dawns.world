@@ -3,6 +3,7 @@ package util
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strings"
 
@@ -74,5 +75,33 @@ func (r *RecordFunds) Save(stub shim.ChaincodeStubInterface) *ChaincodeError {
 			ErrString: errString}
 	}
 	log.Debugf("funds record saved: %s: %s", r.Key, string(bytes))
+	return nil
+}
+
+// Add sets funds record balance to the sum r.Balance + tx.Amount()
+func (r *RecordFunds) Add(tx TransactionLog) *ChaincodeError {
+	var err *ChaincodeError
+	balance := new(big.Int)
+	balance.SetString(r.Balance[2:], 16)
+	if err = addAmount(balance, tx.AmountHex()); err != nil {
+		log.Error(err.Error())
+		return nil
+	}
+	r.Balance = fmt.Sprintf("0x%s", balance.Text(16))
+	log.Info("funds record balance: ", r.Balance)
+	return nil
+}
+
+func addAmount(balance *big.Int, amount string) *ChaincodeError {
+	a := new(big.Int)
+	a.SetString(amount[2:], 16)
+	if a.Sign() < 0 {
+		return &ChaincodeError{
+			Code: http.StatusBadRequest,
+			ErrString: fmt.Sprintf(
+				`amount "%s" should be positive`,
+				amount)}
+	}
+	balance.Add(balance, a)
 	return nil
 }
