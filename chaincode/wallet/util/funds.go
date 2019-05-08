@@ -49,13 +49,24 @@ func (r *RecordFunds) buildKey() string {
 func (r *RecordFunds) Load(stub shim.ChaincodeStubInterface) *ChaincodeError {
 	bytes, ccErr := CheckState(stub, r.Key, false)
 	if ccErr != nil {
+		errString := fmt.Sprintf(
+			"funds record load failed: %s; %v", r.Key, ccErr)
+		log.Errorf(errString)
 		return ccErr
 	}
-	if err := json.Unmarshal(bytes, r); err != nil {
-		errString := fmt.Sprintf("funds record load failed: %v", err)
-		log.Errorf(errString)
-		return &ChaincodeError{Code: http.StatusInternalServerError,
-			ErrString: errString}
+	if bytes == nil {
+		errString := fmt.Sprintf(
+			"funds record is nil: %s; %s", r.Key, string(bytes))
+		log.Warn(errString)
+	} else {
+		log.Debugf("funds record load: %s; %s", r.Key, string(bytes))
+		if err := json.Unmarshal(bytes, r); err != nil {
+			errString := fmt.Sprintf(
+				"funds record unmarshal failed: %s; %v", r.Key, err)
+			log.Errorf(errString)
+			return &ChaincodeError{Code: http.StatusInternalServerError,
+				ErrString: errString}
+		}
 	}
 	return nil
 }
@@ -85,7 +96,9 @@ func (r *RecordFunds) Save(stub shim.ChaincodeStubInterface) *ChaincodeError {
 func (r *RecordFunds) Add(tx TransactionLog) *ChaincodeError {
 	var err *ChaincodeError
 	balance := new(big.Int)
-	balance.SetString(r.Balance[2:], 16)
+	if r.Balance != "" {
+		balance.SetString(r.Balance[2:], 16)
+	}
 	if err = addAmount(balance, tx.AmountHex()); err != nil {
 		log.Error(err.Error())
 		return nil

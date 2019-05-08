@@ -110,5 +110,9 @@ func BuildLogTransactionStartKey(network, token string, args ...string) string {
 // BuildRecordFundsKey key of funds deposit and withdraw record
 func BuildRecordFundsKey(chain, token, fundsHash, walletAddress string) string {
 	return fmt.Sprintf("%s-%s-%s-%s-%s",
-		TagRecordFunds, chain, token, fundsHash, walletAddress)
+		TagRecordFunds,
+		strings.ToUpper(chain),
+		strings.ToUpper(token),
+		strings.ToUpper(fundsHash),
+		strings.ToUpper(walletAddress))
 }

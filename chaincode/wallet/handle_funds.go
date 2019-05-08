@@ -60,7 +60,7 @@ func (w *WalletChaincode) registerFunds(
 		Version:   util.ChaincodeVersion,
 		Hash:      fundsHash,
 		BaseKey:   util.BuildFundsBaseKey(baseChain, baseToken, fundsHash),
-		AcceptKey: util.BuildFundsBaseKey(chain, token, fundsHash)}
+		AcceptKey: util.BuildFundsAcceptKey(chain, token, fundsHash)}
 	var bytes []byte
 	var err error
 	if bytes, err = json.Marshal(fundsState); err != nil {
@@ -146,6 +146,8 @@ func (w *WalletChaincode) fundsDeposit(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	fundsTokenKey, walletAddress, amount :=
 		args[0], args[1], args[2]
+	log.Debugf("funds deposit: %s, %s, %s",
+		fundsTokenKey, walletAddress, amount)
 	rec := util.NewRecordFunds(fundsTokenKey, walletAddress)
 	wallet := util.NewWallet(
 		rec.Chain,
