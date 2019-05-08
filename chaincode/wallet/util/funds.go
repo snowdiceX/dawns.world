@@ -26,6 +26,9 @@ type RecordFunds struct {
 // NewRecordFunds create a funds record
 func NewRecordFunds(fundsTokenKey, walletAddress string) *RecordFunds {
 	vs := strings.Split(fundsTokenKey, "-")
+	if len(vs) < 4 {
+		vs = []string{"wrong", "funds", "token", "key"}
+	}
 	rec := &RecordFunds{
 		Version:       ChaincodeVersion,
 		FundsTokenKey: fundsTokenKey,

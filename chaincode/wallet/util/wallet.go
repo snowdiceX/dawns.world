@@ -146,7 +146,7 @@ func (w *Wallet) preCheck(tx TransactionLog) *ChaincodeError {
 		return &ChaincodeError{
 			Code: http.StatusInternalServerError,
 			ErrString: fmt.Sprintf(
-				"wrong wallet: %s, %s, %s/ %s, %s, %s",
+				"wrong wallet: %s, %s, %s / %s, %s, %s",
 				w.Chain, w.Token, w.Address,
 				tx.Chain(), tx.Token(), tx.Address())}
 	}
@@ -173,6 +173,81 @@ func (w *Wallet) preCheck(tx TransactionLog) *ChaincodeError {
 			ErrString: fmt.Sprintf(
 				`gas price "%s" should be prefixed with 0x`,
 				tx.GasPriceHex())}
+	}
+	return nil
+}
+
+// enough determines if wallet balance enough for the amount needed
+func enough(balance *big.Int, amount *big.Int) bool {
+	return balance.CmpAbs(amount) >= 0
+}
+
+func sumAmount(balance *big.Int, amount string) *ChaincodeError {
+	if len(amount) > 0 {
+		a := new(big.Int)
+		a.SetString(amount[2:], 16)
+		if a.Sign() < 0 && !enough(balance, a) {
+			return &ChaincodeError{
+				Code: http.StatusBadRequest,
+				ErrString: fmt.Sprintf(
+					`balance not enough for amount: %s`,
+					amount)}
+		}
+		balance.Add(balance, a)
+	}
+	return nil
+}
+
+func subAmount(balance *big.Int, amount string) *ChaincodeError {
+	a := new(big.Int)
+	a.SetString(amount[2:], 16)
+	if a.Sign() < 0 {
+		return &ChaincodeError{
+			Code: http.StatusBadRequest,
+			ErrString: fmt.Sprintf(
+				`amount "%s" should be positive`,
+				amount)}
+	}
+	if !enough(balance, a) {
+		return &ChaincodeError{
+			Code: http.StatusBadRequest,
+			ErrString: fmt.Sprintf(
+				`balance not enough for amount: %s`,
+				amount)}
+	}
+	balance.Sub(balance, a)
+	return nil
+}
+
+func sumGasFee(balance *big.Int, gasUsed, gasPrice string) *ChaincodeError {
+	if len(gasUsed) > 0 && len(gasPrice) > 0 {
+		g := new(big.Int)
+		g.SetString(gasUsed[2:], 16)
+		if g.Sign() <= 0 {
+			return &ChaincodeError{
+				Code: http.StatusBadRequest,
+				ErrString: fmt.Sprintf(
+					`gas used "%s" should be positive`,
+					gasUsed)}
+		}
+		gp := new(big.Int)
+		gp.SetString(gasPrice[2:], 16)
+		if gp.Sign() <= 0 {
+			return &ChaincodeError{
+				Code: http.StatusBadRequest,
+				ErrString: fmt.Sprintf(
+					`gas price "%s" should be positive`,
+					gasPrice)}
+		}
+		g.Mul(g, gp)
+		if !enough(balance, g) {
+			return &ChaincodeError{
+				Code: http.StatusBadRequest,
+				ErrString: fmt.Sprintf(
+					`balance 0x%s not enough for fee: %s * %s`,
+					balance.Text(16), gasUsed, gasPrice)}
+		}
+		balance.Sub(balance, g)
 	}
 	return nil
 }
