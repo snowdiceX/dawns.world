@@ -162,17 +162,14 @@ func CheckState(stub shim.ChaincodeStubInterface,
 
 // enough determines if wallet balance enough for the amount needed
 func enough(balance *big.Int, amount *big.Int) bool {
-	if balance.CmpAbs(amount) < 0 {
-		return false
-	}
-	return true
+	return balance.CmpAbs(amount) >= 0
 }
 
 func sumAmount(balance *big.Int, amount string) *ChaincodeError {
 	if len(amount) > 0 {
 		a := new(big.Int)
 		a.SetString(amount[2:], 16)
-		if a.Sign() < 0 && enough(balance, a) {
+		if a.Sign() < 0 && !enough(balance, a) {
 			return &ChaincodeError{
 				Code: http.StatusBadRequest,
 				ErrString: fmt.Sprintf(
@@ -194,7 +191,7 @@ func subAmount(balance *big.Int, amount string) *ChaincodeError {
 				`amount "%s" should be positive`,
 				amount)}
 	}
-	if enough(balance, a) {
+	if !enough(balance, a) {
 		return &ChaincodeError{
 			Code: http.StatusBadRequest,
 			ErrString: fmt.Sprintf(
@@ -226,7 +223,7 @@ func sumGasFee(balance *big.Int, gasUsed, gasPrice string) *ChaincodeError {
 					gasPrice)}
 		}
 		g.Mul(g, gp)
-		if enough(balance, g) {
+		if !enough(balance, g) {
 			return &ChaincodeError{
 				Code: http.StatusBadRequest,
 				ErrString: fmt.Sprintf(
