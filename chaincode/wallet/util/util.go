@@ -83,6 +83,9 @@ type TxInfo struct {
 	Contract string `json:"contract,omitempty"`
 	From     string `json:"from,omitempty"`
 	To       string `json:"to,omitempty"`
+	Amount   string `json:"amount,omitempty"`
+	GasUsed  string `json:"gasUsed,omitempty"`
+	GasPrice string `json:"gasPrice,omitempty"`
 	TxHash   string `json:"txHash,omitempty"`
 	Height   string `json:"height,omitempty"`
 	Status   string `json:"status,omitempty"`
@@ -227,8 +230,8 @@ func sumGasFee(balance *big.Int, gasUsed, gasPrice string) *ChaincodeError {
 			return &ChaincodeError{
 				Code: http.StatusBadRequest,
 				ErrString: fmt.Sprintf(
-					`balance not enough for fee: %s * %s`,
-					gasUsed, gasPrice)}
+					`balance 0x%s not enough for fee: %s * %s`,
+					balance.Text(16), gasUsed, gasPrice)}
 		}
 		balance.Sub(balance, g)
 	}

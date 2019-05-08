@@ -36,9 +36,8 @@ public class FundsRestController extends BaseRestController{
     @ResponseBody
     public String fundsDeposit(HttpServletRequest request,
     		@RequestBody FundsRequest req) {
-    	return fabric.FundsDeposit(req.getFundsKey(),
-    			req.getWalletAddress(),
-    			req.getChain(), req.getToken(), req.getAmount());
+    	return fabric.FundsDeposit(req.getFundsTokenKey(),
+    			req.getWalletAddress(), req.getAmount());
     }
 
     @ApiOperation(value="Withdraw",
@@ -49,9 +48,8 @@ public class FundsRestController extends BaseRestController{
     @ResponseBody
     public String fundsWithdraw(HttpServletRequest request,
     		@RequestBody FundsRequest req) {
-    	return fabric.FundsWithdraw(req.getFundsKey(),
-    			req.getWalletAddress(),
-    			req.getChain(), req.getToken(), req.getAmount());
+    	return fabric.FundsWithdraw(req.getFundsTokenKey(),
+    			req.getWalletAddress(), req.getAmount());
     }
     
     /**

@@ -144,7 +144,8 @@ func (w *WalletChaincode) funds(
 
 func (w *WalletChaincode) fundsDeposit(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	fundsTokenKey, walletAddress, amount := args[0], args[1], args[2]
+	fundsTokenKey, walletAddress, amount :=
+		args[0], args[1], args[2]
 	rec := util.NewRecordFunds(fundsTokenKey, walletAddress)
 	wallet := util.NewWallet(
 		rec.Chain,

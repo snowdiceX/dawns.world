@@ -91,17 +91,14 @@ public class FabricService {
 		return 	ret;
 	}
 	
-	public String FundsDeposit(String fundsKey,
-			String walletAddress, String chain,
-			String token, String amount) {
+	public String FundsDeposit(String fundsTokenKey,
+			String walletAddress, String amount) {
 		String ret = ERR_NULLJNA;
 		if (api != null) {
 			StringBuilder buf = new StringBuilder();
 			buf.append("{\"Func\":\"funds\", \"Args\":[\"deposit\", \"")
-			.append(fundsKey).append("\", \"")
+			.append(fundsTokenKey).append("\", \"")
 			.append(walletAddress).append("\", \"")
-			.append(chain).append("\", \"")
-			.append(token).append("\", \"")
 			.append(amount).append("\"]}");
 			ret =  api.chaincodeInvoke("orgchannel", "wallet", buf.toString());
 		}
@@ -109,17 +106,14 @@ public class FabricService {
 		return 	ret;
 	}
 	
-	public String FundsWithdraw(String fundsKey,
-			String walletAddress, String chain,
-			String token, String amount) {
+	public String FundsWithdraw(String fundsTokenKey,
+			String walletAddress, String amount) {
 		String ret = ERR_NULLJNA;
 		if (api != null) {
 			StringBuilder buf = new StringBuilder();
 			buf.append("{\"Func\":\"funds\", \"Args\":[\"withdraw\", \"")
-			.append(fundsKey).append("\", \"")
+			.append(fundsTokenKey).append("\", \"")
 			.append(walletAddress).append("\", \"")
-			.append(chain).append("\", \"")
-			.append(token).append("\", \"")
 			.append(amount).append("\"]}");
 			ret =  api.chaincodeInvoke("orgchannel", "wallet", buf.toString());
 		}
