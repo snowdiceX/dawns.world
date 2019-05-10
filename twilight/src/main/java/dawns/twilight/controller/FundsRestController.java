@@ -113,6 +113,20 @@ public class FundsRestController extends BaseRestController{
 				+"\", \"0x"+Integer.toHexString(pageSize)+"\"]}");
     }
     
+    @ApiOperation(value="Paging funds logs")
+    @RequestMapping(value = "/logs",
+    		method = RequestMethod.GET,
+    		produces="application/json;charset=UTF-8")
+    @ResponseBody
+    public String pageFundsLogs(HttpServletRequest request,
+                                            @RequestParam(value = "pageNum") Integer pageNum,
+                                            @RequestParam(value = "pageSize") Integer pageSize) {
+    	return fabric.ChaincodeQuery("orgchannel", "wallet",
+				"{\"Func\":\"query\", \"Args\":[\"funds\", \"pageLogs\""
+				+ ", \"0x"+Integer.toHexString(pageNum)
+				+"\", \"0x"+Integer.toHexString(pageSize)+"\"]}");
+    }
+    
     @ApiOperation(value="Paging token")
     @RequestMapping(value = "/tokens",
     		method = RequestMethod.GET,

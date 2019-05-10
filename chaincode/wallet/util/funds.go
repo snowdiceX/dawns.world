@@ -33,16 +33,22 @@ func NewRecordFunds(fundsTokenKey, walletAddress string) *RecordFunds {
 		Version:       ChaincodeVersion,
 		FundsTokenKey: fundsTokenKey,
 		WalletAddress: walletAddress,
-		Chain:         vs[1],
-		Token:         vs[2],
+		Chain:         strings.ToUpper(vs[1]),
+		Token:         strings.ToUpper(vs[2]),
 		FundsHash:     vs[3]}
 	rec.Key = rec.buildKey()
 	return rec
 }
 
-// buildKey returns state key of this record
+// buildKey returns record state key of this funds record
 func (r *RecordFunds) buildKey() string {
 	return BuildRecordFundsKey(r.Chain, r.Token, r.FundsHash, r.WalletAddress)
+}
+
+// buildLogKey returns log state key of this funds record
+func (r *RecordFunds) buildLogKey(tx *TxRegister) string {
+	return BuildLogRecordFundsKey(r.Chain, r.Token, r.FundsHash,
+		r.WalletAddress, tx.Info.Height, tx.Info.TxHash)
 }
 
 // Load returns state data of this record
@@ -105,6 +111,34 @@ func (r *RecordFunds) Add(tx TransactionLog) *ChaincodeError {
 	}
 	r.Balance = fmt.Sprintf("0x%s", balance.Text(16))
 	log.Info("funds record balance: ", r.Balance)
+	return nil
+}
+
+// Log funds transactions: deposit or withdraw
+func (r *RecordFunds) Log(
+	stub shim.ChaincodeStubInterface, tx *TxRegister) *ChaincodeError {
+	bytes, err := json.Marshal(tx)
+	if err != nil {
+		errString := fmt.Sprintf("funds record log marshal error: %v", err)
+		log.Errorf(errString)
+		return &ChaincodeError{
+			Code:      http.StatusInternalServerError,
+			ErrString: errString}
+	}
+	if err = stub.PutState(r.buildLogKey(tx), bytes); err != nil {
+		errString := fmt.Sprintf("funds record log save error: %v", err)
+		log.Errorf(errString)
+		return &ChaincodeError{
+			Code:      http.StatusInternalServerError,
+			ErrString: errString}
+	}
+	log.Debugf("funds record log saved: %s: %s", r.Key, string(bytes))
+	return nil
+}
+
+// CountIn calculate the total amount of funds record based on all logs
+func (r *RecordFunds) CountIn(
+	stub shim.ChaincodeStubInterface) *ChaincodeError {
 	return nil
 }
 

@@ -22,6 +22,8 @@ const (
 	TagLogRegisteredTx = "LogRegisteredTx"
 	// TagRecordFunds key prefix of funds deposit and withdraw record
 	TagRecordFunds = "RecordFunds"
+	// TagLogRecordFunds key prefix of funds deposit and withdraw log
+	TagLogRecordFunds = "LogRecordFunds"
 )
 
 // BuildAccountKey key of user account
@@ -111,8 +113,22 @@ func BuildLogTransactionStartKey(network, token string, args ...string) string {
 func BuildRecordFundsKey(chain, token, fundsHash, walletAddress string) string {
 	return fmt.Sprintf("%s-%s-%s-%s-%s",
 		TagRecordFunds,
-		strings.ToUpper(chain),
-		strings.ToUpper(token),
-		strings.ToUpper(fundsHash),
-		strings.ToUpper(walletAddress))
+		chain,
+		token,
+		fundsHash,
+		walletAddress)
+}
+
+// BuildFundsRecordLogStartKey key for query funds record log list
+func BuildFundsRecordLogStartKey(args ...string) string {
+	return fmt.Sprintf("%s-%s",
+		TagLogRecordFunds, strings.Join(args, "-"))
+}
+
+// BuildLogRecordFundsKey key of funds deposit and withdraw log
+func BuildLogRecordFundsKey(chain, token, fundsHash,
+	walletAddress, height, txIndex string) string {
+	return BuildFundsRecordLogStartKey(
+		chain, token, fundsHash,
+		walletAddress, height, txIndex)
 }

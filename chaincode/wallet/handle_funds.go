@@ -120,6 +120,11 @@ func (w *WalletChaincode) queryFunds(
 			// query tokens
 			return w.paginationFunds(stub, args[1:])
 		}
+	case "pageLogs":
+		{
+			// query tokens
+			return w.paginationLogs(stub, args[1:])
+		}
 	}
 	return util.Error(http.StatusBadRequest, fmt.Sprintf(
 		"query funds failed: query what? %s", what))
@@ -145,39 +150,43 @@ func (w *WalletChaincode) funds(
 func (w *WalletChaincode) fundsDeposit(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	fundsTokenKey, walletAddress, amount :=
-		args[0], args[1], args[2]
+		args[0], strings.ToUpper(args[1]), args[2]
 	log.Debugf("funds deposit: %s, %s, %s",
 		fundsTokenKey, walletAddress, amount)
 	rec := util.NewRecordFunds(fundsTokenKey, walletAddress)
-	wallet := util.NewWallet(
-		rec.Chain,
-		rec.Token,
-		rec.WalletAddress)
+	// wallet := util.NewWallet(
+	// 	rec.Chain,
+	// 	rec.Token,
+	// 	rec.WalletAddress)
 	tx := &util.TxRegister{
 		ChainName: rec.Chain,
 		TokenName: rec.Token,
 		Addr:      rec.WalletAddress,
 		Amount:    amount,
 		Info: &util.TxInfo{
-			From: walletAddress,
-			To:   fundsTokenKey}}
-	var err *util.ChaincodeError
-	if err := wallet.Load(stub); err != nil {
-		return util.Error(err.Code, err.Error())
-	}
-	if err = rec.Load(stub); err != nil {
-		return util.Error(err.Code, err.Error())
-	}
-	if err = wallet.Sub(tx); err != nil {
-		return util.Error(err.Code, err.Error())
-	}
-	if err = rec.Add(tx); err != nil {
-		return util.Error(err.Code, err.Error())
-	}
-	if err = wallet.Save(stub); err != nil {
-		return util.Error(err.Code, err.Error())
-	}
-	if err = rec.Save(stub); err != nil {
+			From:   walletAddress,
+			To:     fundsTokenKey,
+			TxHash: string(stub.GetTxID())}}
+	// var err *util.ChaincodeError
+	// if err := wallet.Load(stub); err != nil {
+	// 	return util.Error(err.Code, err.Error())
+	// }
+	// if err = rec.Load(stub); err != nil {
+	// 	return util.Error(err.Code, err.Error())
+	// }
+	// if err = wallet.Sub(tx); err != nil {
+	// 	return util.Error(err.Code, err.Error())
+	// }
+	// if err = rec.Add(tx); err != nil {
+	// 	return util.Error(err.Code, err.Error())
+	// }
+	// if err = wallet.Save(stub); err != nil {
+	// 	return util.Error(err.Code, err.Error())
+	// }
+	// if err = rec.Save(stub); err != nil {
+	// 	return util.Error(err.Code, err.Error())
+	// }
+	if err := rec.Log(stub, tx); err != nil {
 		return util.Error(err.Code, err.Error())
 	}
 	ret := &util.ChainResult{Code: 200, Message: "OK"}
@@ -187,11 +196,24 @@ func (w *WalletChaincode) fundsDeposit(
 
 func (w *WalletChaincode) fundsWithdraw(
 	stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	rec := util.NewRecordFunds(args[0], args[1])
-	if err := rec.Load(stub); err != nil {
+	fundsTokenKey, walletAddress, amount :=
+		args[0], strings.ToUpper(args[1]), args[2]
+	log.Debugf("funds withdraw: %s, %s, %s",
+		fundsTokenKey, walletAddress, amount)
+	rec := util.NewRecordFunds(fundsTokenKey, walletAddress)
+	tx := &util.TxRegister{
+		ChainName: rec.Chain,
+		TokenName: rec.Token,
+		Addr:      rec.WalletAddress,
+		Amount:    amount,
+		Info: &util.TxInfo{
+			From: fundsTokenKey,
+			To:   walletAddress}}
+	if err := rec.Log(stub, tx); err != nil {
 		return util.Error(err.Code, err.Error())
 	}
 	ret := &util.ChainResult{Code: 200, Message: "OK"}
+	ret.Result = rec
 	return util.Success(ret)
 }
 
@@ -232,6 +254,56 @@ func constructFundsPage(iterator shim.StateQueryIteratorInterface,
 		}
 		log.Debug(string(rec.Value))
 		rt := &fundsState{}
+		err = json.Unmarshal(rec.Value, rt)
+		if err != nil {
+			return nil, err
+		}
+		rt.Key = rec.Key
+		recs = append(recs, rt)
+	}
+	page := &util.Pagination{}
+	page.Metadata = metadata
+	page.Records = recs
+	return page, nil
+}
+
+func (w *WalletChaincode) paginationLogs(
+	stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	_, pageSizeHex := args[0], args[1]
+	pageSize, _ := strconv.ParseInt(pageSizeHex, 10, 32)
+	startKey := util.BuildFundsRecordLogStartKey()
+	logIterator, meta, err := stub.GetStateByRangeWithPagination(
+		startKey, startKey+"a", int32(pageSize), "")
+	if err != nil {
+		log.Errorf("paging funds error: %v", err)
+		return util.Error(http.StatusInternalServerError,
+			fmt.Sprintf("paging funds failed: %v", err))
+	}
+	defer logIterator.Close()
+	page, err := constructLogsPage(logIterator, meta)
+	if err != nil {
+		log.Errorf("paging funds error: %v", err)
+		return util.Error(http.StatusInternalServerError,
+			fmt.Sprintf("paging funds failed: %v", err))
+	}
+	ret := &util.ChainResult{Code: 200, Message: "OK"}
+	ret.Result = page
+	return util.Success(ret)
+}
+
+// construct a page struct from iterator
+func constructLogsPage(iterator shim.StateQueryIteratorInterface,
+	metadata *pb.QueryResponseMetadata) (*util.Pagination, error) {
+	var recs []interface{}
+	var rec *queryresult.KV
+	var err error
+	for iterator.HasNext() {
+		rec, err = iterator.Next()
+		if err != nil {
+			return nil, err
+		}
+		log.Debug(string(rec.Value))
+		rt := &util.TxRegister{}
 		err = json.Unmarshal(rec.Value, rt)
 		if err != nil {
 			return nil, err
