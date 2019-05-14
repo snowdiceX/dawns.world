@@ -93,9 +93,10 @@ public class FundsRestController extends BaseRestController{
         return fabric.RegisterToken(chain, address);
     }
     
-    @ApiOperation(value="Query")
-    @RequestMapping(value = "/{id}", method = RequestMethod.GET)
-    public JsonResult<Quotation> get(HttpServletRequest request, @PathVariable("id") Integer id) {
+    @ApiOperation(value="Query funds")
+    @RequestMapping(value = "/{fundsHash}", method = RequestMethod.GET)
+    public JsonResult<Quotation> get(HttpServletRequest request,
+    		@PathVariable("fundsHash") String fundsHash) {
     	return new JsonResult<>(HttpStatus.NOT_FOUND);
     }
 
@@ -105,8 +106,8 @@ public class FundsRestController extends BaseRestController{
     		produces="application/json;charset=UTF-8")
     @ResponseBody
     public String pageFunds(HttpServletRequest request,
-                                            @RequestParam(value = "pageNum") Integer pageNum,
-                                            @RequestParam(value = "pageSize") Integer pageSize) {
+    		@RequestParam(value = "pageNum") Integer pageNum,
+    		@RequestParam(value = "pageSize") Integer pageSize) {
     	return fabric.ChaincodeQuery("orgchannel", "wallet",
 				"{\"Func\":\"query\", \"Args\":[\"funds\", \"page\""
 				+ ", \"0x"+Integer.toHexString(pageNum)
